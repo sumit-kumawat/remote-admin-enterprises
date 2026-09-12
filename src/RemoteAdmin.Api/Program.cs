@@ -131,17 +131,17 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Remote Admin Enterprises API v1.0");
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Remote Admin Enterprises API v1.0");
+    options.DocumentTitle = "Remote Admin Enterprises";
+});
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 // Auto-migrate and seed default admin
 {
