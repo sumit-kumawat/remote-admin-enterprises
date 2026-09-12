@@ -3,6 +3,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using RemoteAdmin.Api.Controllers;
+using RemoteAdmin.Domain.Entities;
+using RemoteAdmin.Domain.Enums;
 using RemoteAdmin.Infrastructure.Data;
 using Serilog;
 
@@ -140,12 +143,33 @@ if (app.Environment.IsDevelopment())
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-// Auto-migrate in development
-if (app.Environment.IsDevelopment())
+// Auto-migrate and seed default admin
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment())
+    {
+        await db.Database.MigrateAsync();
+    }
+
+    if (!await db.Users.AnyAsync(u => u.Username == "admin"))
+    {
+        var salt = AuthController.GenerateSalt();
+        var hash = AuthController.HashPassword("Adm1n@123", salt);
+        db.Users.Add(new User
+        {
+            Username = "admin",
+            Email = "hello@sumitkumawat.com",
+            PasswordHash = hash,
+            Salt = salt,
+            Role = UserRole.SuperAdmin,
+            IsActive = true,
+            MustChangePassword = false,
+        });
+        await db.SaveChangesAsync();
+        Log.Information("Default admin account created (username: admin)");
+    }
 }
 
 app.Lifetime.ApplicationStarted.Register(() =>

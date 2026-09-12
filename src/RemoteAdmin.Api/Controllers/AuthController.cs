@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RemoteAdmin.Contracts.Dtos;
+using RemoteAdmin.Domain.Enums;
 using RemoteAdmin.Infrastructure.Data;
 
 namespace RemoteAdmin.Api.Controllers;
@@ -15,6 +16,8 @@ namespace RemoteAdmin.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    public const string DefaultAdminUsername = "admin";
+
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
     private readonly ILogger<AuthController> _logger;
@@ -135,6 +138,118 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("User {Username} changed password", user.Username);
         return Ok(new ApiResponse { Success = true, Message = "Password changed successfully" });
+    }
+
+    [HttpGet("users")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<IActionResult> ListUsers()
+    {
+        var users = await _db.Users
+            .AsNoTracking()
+            .OrderBy(u => u.Username)
+            .Select(u => new UserDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                Role = u.Role.ToString(),
+                IsActive = u.IsActive,
+                LastLogin = u.LastLogin,
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+    [HttpPost("users")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+    {
+        if (request.Password != request.PasswordConfirmation)
+            return BadRequest(new ApiResponse { Success = false, Message = "Passwords do not match" });
+
+        if (request.Password.Length < 8)
+            return BadRequest(new ApiResponse { Success = false, Message = "Password must be at least 8 characters" });
+
+        if (await _db.Users.AnyAsync(u => u.Username == request.Username))
+            return Conflict(new ApiResponse { Success = false, Message = "Username already exists" });
+
+        if (!Enum.TryParse<UserRole>(request.Role, ignoreCase: true, out var role))
+            return BadRequest(new ApiResponse { Success = false, Message = "Invalid role" });
+
+        var salt = GenerateSalt();
+        var user = new Domain.Entities.User
+        {
+            Username = request.Username,
+            Email = request.Email,
+            PasswordHash = HashPassword(request.Password, salt),
+            Salt = salt,
+            Role = role,
+            IsActive = true,
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {Username} created by {CreatedBy}", user.Username, User.Identity?.Name);
+        return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' created" });
+    }
+
+    [HttpDelete("users/{id:guid}")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<IActionResult> DeleteUser(Guid id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null)
+            return NotFound(new ApiResponse { Success = false, Message = "User not found" });
+
+        if (user.Username == DefaultAdminUsername)
+            return BadRequest(new ApiResponse { Success = false, Message = "The default admin account cannot be deleted" });
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {Username} deleted by {DeletedBy}", user.Username, User.Identity?.Name);
+        return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' deleted" });
+    }
+
+    [HttpPut("users/{id:guid}/role")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<IActionResult> UpdateUserRole(Guid id, [FromBody] string role)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null)
+            return NotFound(new ApiResponse { Success = false, Message = "User not found" });
+
+        if (user.Username == DefaultAdminUsername)
+            return BadRequest(new ApiResponse { Success = false, Message = "The default admin account role cannot be changed" });
+
+        if (!Enum.TryParse<UserRole>(role, ignoreCase: true, out var newRole))
+            return BadRequest(new ApiResponse { Success = false, Message = "Invalid role" });
+
+        user.Role = newRole;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {Username} role changed to {Role} by {ChangedBy}", user.Username, newRole, User.Identity?.Name);
+        return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' role updated to {newRole}" });
+    }
+
+    [HttpPut("users/{id:guid}/deactivate")]
+    [Authorize(Policy = "SuperAdmin")]
+    public async Task<IActionResult> DeactivateUser(Guid id)
+    {
+        var user = await _db.Users.FindAsync(id);
+        if (user == null)
+            return NotFound(new ApiResponse { Success = false, Message = "User not found" });
+
+        if (user.Username == DefaultAdminUsername)
+            return BadRequest(new ApiResponse { Success = false, Message = "The default admin account cannot be deactivated" });
+
+        user.IsActive = false;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("User {Username} deactivated by {DeactivatedBy}", user.Username, User.Identity?.Name);
+        return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' deactivated" });
     }
 
     private string GenerateToken(Domain.Entities.User user)
