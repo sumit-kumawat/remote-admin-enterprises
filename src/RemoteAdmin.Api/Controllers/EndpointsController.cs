@@ -177,7 +177,7 @@ public class EndpointsController : ControllerBase
         if (exists)
             return Conflict(new ApiResponse { Success = false, Message = "An endpoint with this hostname already exists" });
 
-        var endpoint = new Endpoint
+        var endpoint = new Domain.Entities.Endpoint
         {
             Hostname = request.Hostname.Trim(),
             Fqdn = request.Fqdn?.Trim(),

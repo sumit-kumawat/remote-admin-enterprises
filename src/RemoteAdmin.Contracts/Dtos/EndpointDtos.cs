@@ -1,6 +1,6 @@
 namespace RemoteAdmin.Contracts.Dtos;
 
-public sealed class EndpointDto
+public class EndpointDto
 {
     public Guid Id { get; set; }
     public required string Hostname { get; set; }
