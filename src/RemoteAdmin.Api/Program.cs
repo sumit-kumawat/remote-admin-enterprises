@@ -148,6 +148,9 @@ if (app.Environment.IsDevelopment())
     await db.Database.MigrateAsync();
 }
 
-Log.Information("Remote Admin Enterprises API v1.0 starting on {Urls}", string.Join(", ", app.Urls));
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    Log.Information("Remote Admin Enterprises API v1.0 listening on {Urls}", string.Join(", ", app.Urls));
+});
 
 await app.RunAsync();
