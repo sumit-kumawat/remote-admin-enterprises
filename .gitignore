@@ -1,0 +1,51 @@
+# Dependencies
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/packages/
+
+# Environment
+.env
+.env.local
+.env.production
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Secrets — never commit these
+*.pfx
+*.pem
+*.key
+
+# User-specific
+*.user
+*.suo
+
+# Build
+*.nupkg
+
+# Test results
+TestResults/
+coverage/
+
+# Docker
+.docker/
+
+# Backup archives
+backups/**/*
+!backups/.gitkeep

@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RemoteAdmin.Agent/RemoteAdmin.Agent.csproj" />
+    <Project Path="src/RemoteAdmin.Api/RemoteAdmin.Api.csproj" />
+    <Project Path="src/RemoteAdmin.Application/RemoteAdmin.Application.csproj" />
+    <Project Path="src/RemoteAdmin.Contracts/RemoteAdmin.Contracts.csproj" />
+    <Project Path="src/RemoteAdmin.Domain/RemoteAdmin.Domain.csproj" />
+    <Project Path="src/RemoteAdmin.Infrastructure/RemoteAdmin.Infrastructure.csproj" />
+    <Project Path="src/RemoteAdmin.Worker/RemoteAdmin.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RemoteAdmin.IntegrationTests/RemoteAdmin.IntegrationTests.csproj" />
+    <Project Path="tests/RemoteAdmin.UnitTests/RemoteAdmin.UnitTests.csproj" />
+  </Folder>
+</Solution>
