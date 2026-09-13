@@ -89,9 +89,9 @@ export const DiscoveryPage: React.FC = () => {
           <div className="w-48">
             <label className="block text-[11px] font-medium text-slate-600 mb-1">Credential Profile</label>
             <select className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]">
-              <option>Default Local Admin (ra)</option>
-              <option>Domain Admin Profile (corp.local)</option>
-              <option>WMI / RPC Anonymous Ping</option>
+              <option>Inherit Default Credential Profile</option>
+              <option>Domain Admin Credential Profile</option>
+              <option>WMI / RPC Network Probe</option>
             </select>
           </div>
 

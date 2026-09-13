@@ -115,6 +115,9 @@ builder.Services.AddSwaggerGen(options =>
 // SignalR
 builder.Services.AddSignalR();
 
+// Windows Management Service
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IWindowsManagementService, RemoteAdmin.Infrastructure.Services.WindowsManagementService>();
+
 // Health Checks
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>("database");

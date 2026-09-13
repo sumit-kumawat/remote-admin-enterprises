@@ -93,7 +93,7 @@ export const AddEndpointModal: React.FC<AddEndpointModalProps> = ({ isOpen, onCl
             <input
               type="text"
               {...register('macAddress')}
-              placeholder="e.g. 00:15:5D:01:22:45"
+              placeholder="e.g. AA:BB:CC:DD:EE:FF"
               className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>

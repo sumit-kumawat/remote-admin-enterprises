@@ -230,8 +230,8 @@ export const EndpointsPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 font-sans">
                 {filteredItems.map((ep) => {
                   const isSelected = selectedEndpointIds.includes(ep.id);
-                  const authStatus = ep.authStatus || 'Authorized';
-                  const authUser = ep.authUser || 'ra';
+                  const authStatus = ep.authStatus || 'Pending Authorization';
+                  const authUser = ep.authUser || 'No credential configured';
                   const deviceType = ep.deviceType || 'Windows';
 
                   return (
@@ -308,6 +308,11 @@ export const EndpointsPage: React.FC = () => {
                             <ShieldCheck className="h-3 w-3" /> Authorized
                           </span>
                         )}
+                        {authStatus === 'Pending Authorization' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
+                            <Clock className="h-3 w-3" /> Pending Auth
+                          </span>
+                        )}
                         {authStatus === 'NotAuthorized' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                             <ShieldAlert className="h-3 w-3" /> Not Authorized
@@ -323,9 +328,9 @@ export const EndpointsPage: React.FC = () => {
                             <ShieldAlert className="h-3 w-3" /> Auth Failed
                           </span>
                         )}
-                        {authStatus === 'Timeout' && (
+                        {authStatus === 'Timeout' || authStatus === 'Unreachable' && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
-                            <Clock className="h-3 w-3" /> Timeout
+                            <Clock className="h-3 w-3" /> Unreachable
                           </span>
                         )}
                       </td>

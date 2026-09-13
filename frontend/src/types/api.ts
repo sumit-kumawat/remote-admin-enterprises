@@ -58,6 +58,22 @@ export interface PagedResponse<T> {
 export type EndpointStatus = 'Online' | 'Offline' | 'Unknown';
 export type EndpointApprovalStatus = 'PendingApproval' | 'Approved' | 'Rejected';
 
+export interface SectionStatusDto {
+  isAvailable: boolean;
+  errorMessage?: string | null;
+}
+
+export interface PhysicalDiskDto {
+  diskIndex: number;
+  model?: string | null;
+  serialNumber?: string | null;
+  interfaceType?: string | null;
+  mediaType?: string | null;
+  capacityGb: number;
+  healthStatus?: string | null;
+  partitions: StorageDriveDto[];
+}
+
 export interface EndpointDto {
   id: string;
   hostname: string;
@@ -72,6 +88,10 @@ export interface EndpointDto {
   credentialProfileId?: string | null;
   credentialProfileName?: string | null;
   deviceType?: string | null;
+  domainWorkgroup?: string | null;
+  currentInteractiveUser?: string | null;
+  systemUptime?: string | null;
+  lastSuccessfulRefresh?: string | null;
   agentStatus?: string | null;
   agentVersion?: string | null;
   windowsEdition?: string | null;
@@ -163,6 +183,8 @@ export interface EndpointDetailDto extends EndpointDto {
   drives: StorageDriveDto[];
   localAccounts?: LocalAccountDto[];
   securitySoftware?: SecuritySoftwareDto[];
+  physicalDisks?: PhysicalDiskDto[];
+  sectionStatuses?: Record<string, SectionStatusDto>;
 }
 
 export interface CreateEndpointRequest {

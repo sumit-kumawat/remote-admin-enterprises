@@ -98,7 +98,7 @@ public class DiscoveryController : ControllerBase
                         ScanId = scanId,
                         Hostname = hostname,
                         IpAddress = ip,
-                        MacAddress = "00:15:5D:" + string.Join(":", ip.Split('.').Select(x => int.Parse(x).ToString("X2"))).Substring(0, 8),
+                        MacAddress = null,
                         OsName = osName,
                         IsWindows = isWinPortOpen, // Only Windows endpoints can be imported to inventory
                         DiscoveryMethod = isWinPortOpen ? "WMI/RPC/Ping" : (isLinuxPortOpen ? "SSH/ICMP" : "ICMP Ping"),
@@ -176,11 +176,11 @@ public class DiscoveryController : ControllerBase
                     Hostname = item.Hostname,
                     IpAddress = item.IpAddress,
                     MacAddress = item.MacAddress,
-                    Status = Domain.Enums.EndpointStatus.Online,
+                    Status = Domain.Enums.EndpointStatus.Unknown,
                     ApprovalStatus = Domain.Enums.EndpointApprovalStatus.Approved,
                     AuthMode = "Inherit",
-                    AuthStatus = "Authorized",
-                    AuthUser = "ra",
+                    AuthStatus = "Pending Authorization",
+                    AuthUser = null,
                     DeviceType = "Windows",
                     Description = $"Imported via Discovery Scan ({item.ScanId})",
                 });

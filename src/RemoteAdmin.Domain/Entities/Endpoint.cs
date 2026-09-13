@@ -25,6 +25,12 @@ public class Endpoint
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
+    public string? DomainWorkgroup { get; set; }
+    public string? CurrentInteractiveUser { get; set; }
+    public string? SystemUptime { get; set; }
+    public DateTime? LastSuccessfulRefresh { get; set; }
+    public string? SectionStatusesJson { get; set; }
+
     public EndpointGroup? Group { get; set; }
     public CredentialProfile? CredentialProfile { get; set; }
     public AgentIdentity? AgentIdentity { get; set; }

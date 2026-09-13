@@ -110,19 +110,14 @@ export const EndpointControlModal: React.FC<EndpointControlModalProps> = ({
   };
 
   const ep = endpoint?.data;
-
-  const localAccounts = [
-    { username: 'Administrator', role: 'Built-in Admin', group: 'Administrators', status: 'Enabled' },
-    { username: 'ra', role: 'Remote Managed Account', group: 'Administrators', status: 'Enabled' },
-    { username: 'Guest', role: 'Built-in Guest', group: 'Guests', status: 'Disabled' },
-  ];
+  const localAccounts = ep?.localAccounts || [];
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={`Endpoint Management Console — ${ep?.hostname || 'Endpoint'}`}
-      subtitle={`Resolved IP: ${ep?.ipAddress || 'Resolving...'} • OS: Windows Server 2022 Datacenter`}
+      subtitle={`Resolved IP: ${ep?.ipAddress || 'Unassigned'} • OS: ${ep?.deviceType || 'Windows'}`}
       maxWidth="2xl"
     >
       <div className="space-y-4 text-xs font-sans">
@@ -204,7 +199,7 @@ export const EndpointControlModal: React.FC<EndpointControlModalProps> = ({
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">MAC Address</span>
-                <span className="font-mono text-slate-600">{ep?.macAddress || '00:15:5D:01:22:45'}</span>
+                <span className="font-mono text-slate-600">{ep?.macAddress || '—'}</span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500 block">Status</span>
@@ -258,17 +253,17 @@ export const EndpointControlModal: React.FC<EndpointControlModalProps> = ({
                   {localAccounts.map((acc) => (
                     <tr key={acc.username} className="hover:bg-slate-50">
                       <td className="p-2 font-semibold text-slate-900">{acc.username}</td>
-                      <td className="p-2 text-slate-600">{acc.role}</td>
-                      <td className="p-2 font-mono text-[#2F3EA0] font-semibold">{acc.group}</td>
+                      <td className="p-2 text-slate-600">{acc.isAdmin ? 'Administrator' : 'Standard User'}</td>
+                      <td className="p-2 font-mono text-[#2F3EA0] font-semibold">{acc.groups?.join(', ') || 'Users'}</td>
                       <td className="p-2">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            acc.status === 'Enabled'
+                            acc.isEnabled
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-slate-100 text-slate-600'
                           }`}
                         >
-                          {acc.status}
+                          {acc.isEnabled ? 'Enabled' : 'Disabled'}
                         </span>
                       </td>
                       <td className="p-2 text-right">
@@ -276,7 +271,7 @@ export const EndpointControlModal: React.FC<EndpointControlModalProps> = ({
                           onClick={() => {
                             setTargetUsername(acc.username);
                           }}
-                          className="px-2 py-0.5 text-[11px] font-medium border border-slate-300 rounded hover:bg-slate-100 text-slate-700"
+                          className="px-2 py-0.5 text-[11px] font-medium border border-slate-300 rounded hover:bg-slate-100 text-slate-700 cursor-pointer"
                         >
                           Select
                         </button>
@@ -373,11 +368,7 @@ export const EndpointControlModal: React.FC<EndpointControlModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(ep?.software || [
-                    { id: '1', softwareName: 'Microsoft .NET Runtime', publisher: 'Microsoft Corp', version: '8.0.2' },
-                    { id: '2', softwareName: '7-Zip 23.01 (x64)', publisher: 'Igor Pavlov', version: '23.01.00.0' },
-                    { id: '3', softwareName: 'Remote Admin Management Agent', publisher: 'Enterprise Admin', version: '1.0.0' },
-                  ]).map((s: any) => (
+                  {(ep?.software || []).map((s: any) => (
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="p-2 font-semibold text-slate-900">{s.softwareName}</td>
                       <td className="p-2 text-slate-600">{s.publisher || 'N/A'}</td>

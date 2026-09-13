@@ -1,10 +1,13 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RemoteAdmin.Application.Interfaces;
 using RemoteAdmin.Contracts.Dtos;
 using RemoteAdmin.Domain.Entities;
 using RemoteAdmin.Domain.Enums;
 using RemoteAdmin.Infrastructure.Data;
+using Endpoint = RemoteAdmin.Domain.Entities.Endpoint;
 
 namespace RemoteAdmin.Api.Controllers;
 
@@ -14,11 +17,13 @@ namespace RemoteAdmin.Api.Controllers;
 public class EndpointsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly IWindowsManagementService _wmiService;
     private readonly ILogger<EndpointsController> _logger;
 
-    public EndpointsController(AppDbContext db, ILogger<EndpointsController> logger)
+    public EndpointsController(AppDbContext db, IWindowsManagementService wmiService, ILogger<EndpointsController> logger)
     {
         _db = db;
+        _wmiService = wmiService;
         _logger = logger;
     }
 
@@ -50,10 +55,10 @@ public class EndpointsController : ControllerBase
                 IpAddress = e.IpAddress,
                 MacAddress = e.MacAddress,
                 Status = e.Status.ToString(),
-                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Authorized" : e.AuthStatus,
-                AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : "ra"),
+                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Pending Authorization" : e.AuthStatus,
+                AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : null),
                 DeviceType = string.IsNullOrEmpty(e.DeviceType) ? "Windows" : e.DeviceType,
-                OsName = "Windows Server / Workstation",
+                OsName = e.HardwareInventory != null ? e.HardwareInventory.Manufacturer : "Windows Endpoint",
             })
             .ToListAsync();
 
@@ -93,13 +98,17 @@ public class EndpointsController : ControllerBase
                 IpAddress = e.IpAddress,
                 MacAddress = e.MacAddress,
                 Status = e.Status.ToString(),
-                ApprovalStatus = "Approved",
-                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Authorized" : e.AuthStatus,
+                ApprovalStatus = e.ApprovalStatus.ToString(),
+                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Pending Authorization" : e.AuthStatus,
                 AuthMode = string.IsNullOrEmpty(e.AuthMode) ? "Inherit" : e.AuthMode,
-                AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : "ra"),
+                AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : null),
                 CredentialProfileId = e.CredentialProfileId,
                 CredentialProfileName = e.CredentialProfile != null ? e.CredentialProfile.Name : null,
                 DeviceType = string.IsNullOrEmpty(e.DeviceType) ? "Windows" : e.DeviceType,
+                DomainWorkgroup = e.DomainWorkgroup,
+                CurrentInteractiveUser = e.CurrentInteractiveUser,
+                SystemUptime = e.SystemUptime,
+                LastSuccessfulRefresh = e.LastSuccessfulRefresh,
                 AgentStatus = e.AgentIdentity != null ? e.AgentIdentity.Status.ToString() : null,
                 AgentVersion = e.AgentIdentity != null ? e.AgentIdentity.AgentVersion : null,
                 Description = e.Description,
@@ -140,8 +149,15 @@ public class EndpointsController : ControllerBase
         if (endpoint == null)
             return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
 
-        var localAccounts = GetLocalAccountsForEndpoint(endpoint);
-        var securitySoftware = GetSecuritySoftwareForEndpoint(endpoint);
+        Dictionary<string, SectionStatusDto> sectionStatuses = new();
+        if (!string.IsNullOrEmpty(endpoint.SectionStatusesJson))
+        {
+            try
+            {
+                sectionStatuses = JsonSerializer.Deserialize<Dictionary<string, SectionStatusDto>>(endpoint.SectionStatusesJson) ?? new();
+            }
+            catch { }
+        }
 
         var detail = new EndpointDetailDto
         {
@@ -151,13 +167,17 @@ public class EndpointsController : ControllerBase
             IpAddress = endpoint.IpAddress,
             MacAddress = endpoint.MacAddress,
             Status = endpoint.Status.ToString(),
-            ApprovalStatus = "Approved",
-            AuthStatus = string.IsNullOrEmpty(endpoint.AuthStatus) ? "Authorized" : endpoint.AuthStatus,
+            ApprovalStatus = endpoint.ApprovalStatus.ToString(),
+            AuthStatus = string.IsNullOrEmpty(endpoint.AuthStatus) ? "Pending Authorization" : endpoint.AuthStatus,
             AuthMode = string.IsNullOrEmpty(endpoint.AuthMode) ? "Inherit" : endpoint.AuthMode,
-            AuthUser = endpoint.AuthUser ?? (endpoint.CredentialProfile != null ? endpoint.CredentialProfile.Username : "ra"),
+            AuthUser = endpoint.AuthUser ?? (endpoint.CredentialProfile != null ? endpoint.CredentialProfile.Username : null),
             CredentialProfileId = endpoint.CredentialProfileId,
-            CredentialProfileName = endpoint.CredentialProfile != null ? endpoint.CredentialProfile.Name : null,
+            CredentialProfileName = endpoint.CredentialProfile?.Name,
             DeviceType = string.IsNullOrEmpty(endpoint.DeviceType) ? "Windows" : endpoint.DeviceType,
+            DomainWorkgroup = endpoint.DomainWorkgroup,
+            CurrentInteractiveUser = endpoint.CurrentInteractiveUser,
+            SystemUptime = endpoint.SystemUptime,
+            LastSuccessfulRefresh = endpoint.LastSuccessfulRefresh,
             AgentStatus = endpoint.AgentIdentity?.Status.ToString(),
             AgentVersion = endpoint.AgentIdentity?.AgentVersion,
             Description = endpoint.Description,
@@ -218,8 +238,32 @@ public class EndpointsController : ControllerBase
                 Architecture = s.Architecture?.ToString(),
                 InstallPath = s.InstallPath,
             }).ToList(),
-            LocalAccounts = localAccounts,
-            SecuritySoftware = securitySoftware,
+            LocalAccounts = [],
+            SecuritySoftware = [],
+            PhysicalDisks = endpoint.HardwareInventory?.Drives != null && endpoint.HardwareInventory.Drives.Count > 0
+                ? [
+                    new PhysicalDiskDto
+                    {
+                        DiskIndex = 0,
+                        Model = endpoint.HardwareInventory.Model ?? "Physical Storage Disk",
+                        SerialNumber = endpoint.HardwareInventory.SerialNumber ?? "PRIMARY-DISK-0",
+                        InterfaceType = "SATA/NVMe",
+                        MediaType = "SSD",
+                        CapacityGb = endpoint.HardwareInventory.Drives.Sum(d => d.CapacityGb ?? 0),
+                        HealthStatus = "Healthy",
+                        Partitions = endpoint.HardwareInventory.Drives.Select(d => new StorageDriveDto
+                        {
+                            DriveLetter = d.DriveLetter,
+                            CapacityGb = d.CapacityGb,
+                            FreeSpaceGb = d.FreeSpaceGb,
+                            UsedSpaceGb = d.UsedSpaceGb,
+                            FileSystem = d.FileSystem,
+                            DiskType = d.DiskType
+                        }).ToList()
+                    }
+                  ]
+                : [],
+            SectionStatuses = sectionStatuses
         };
 
         return Ok(new ApiResponse<EndpointDetailDto> { Success = true, Data = detail });
@@ -233,14 +277,17 @@ public class EndpointsController : ControllerBase
         if (string.IsNullOrWhiteSpace(target))
             return BadRequest(new ApiResponse { Success = false, Message = "Hostname or IP address is required" });
 
-        var exists = await _db.Endpoints.AnyAsync(e => e.Hostname == target || e.IpAddress == target);
+        var reqHostname = request.Hostname?.Trim();
+        var reqIp = request.IpAddress?.Trim();
+
+        var exists = await _db.Endpoints.AnyAsync(e => e.Hostname == target || e.IpAddress == target || (!string.IsNullOrEmpty(reqHostname) && e.Hostname == reqHostname));
         if (exists)
             return Conflict(new ApiResponse { Success = false, Message = "An endpoint with this hostname or IP already exists" });
 
-        string hostname = target;
-        string resolvedIp = target;
+        string hostname = !string.IsNullOrWhiteSpace(reqHostname) ? reqHostname : target;
+        string resolvedIp = !string.IsNullOrWhiteSpace(reqIp) ? reqIp : target;
 
-        if (System.Net.IPAddress.TryParse(target, out _))
+        if (string.IsNullOrWhiteSpace(reqHostname) && System.Net.IPAddress.TryParse(target, out _))
         {
             try
             {
@@ -249,7 +296,7 @@ public class EndpointsController : ControllerBase
             }
             catch { }
         }
-        else
+        else if (string.IsNullOrWhiteSpace(reqIp))
         {
             try
             {
@@ -260,7 +307,7 @@ public class EndpointsController : ControllerBase
             catch { }
         }
 
-        var endpoint = new Domain.Entities.Endpoint
+        var endpoint = new Endpoint
         {
             Hostname = hostname,
             Fqdn = request.Fqdn?.Trim(),
@@ -269,7 +316,8 @@ public class EndpointsController : ControllerBase
             Description = request.Description?.Trim(),
             Location = request.Location?.Trim(),
             GroupId = request.GroupId,
-            Status = EndpointStatus.Online,
+            Status = EndpointStatus.Unknown,
+            AuthStatus = "Pending Authorization",
             ApprovalStatus = EndpointApprovalStatus.Approved,
         };
 
@@ -281,23 +329,24 @@ public class EndpointsController : ControllerBase
             Target = target,
             Result = "Success",
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"hostname\": \"{hostname}\", \"ipAddress\": \"{resolvedIp}\"}}",
+            DetailsJson = JsonSerializer.Serialize(new { hostname, ipAddress = resolvedIp }),
         });
 
         await _db.SaveChangesAsync();
-        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) created by {User}", endpoint.Hostname, endpoint.IpAddress, User.Identity?.Name);
+        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) added. Pending authorization.", endpoint.Hostname, endpoint.IpAddress);
 
         return CreatedAtAction(nameof(GetById), new { id = endpoint.Id },
             new ApiResponse<EndpointDto>
             {
                 Success = true,
-                Message = $"Endpoint '{endpoint.Hostname}' added successfully",
+                Message = $"Endpoint '{endpoint.Hostname}' added successfully. Status set to Pending Authorization.",
                 Data = new EndpointDto
                 {
                     Id = endpoint.Id,
                     Hostname = endpoint.Hostname,
                     IpAddress = endpoint.IpAddress,
                     Status = endpoint.Status.ToString(),
+                    AuthStatus = endpoint.AuthStatus,
                     ApprovalStatus = endpoint.ApprovalStatus.ToString(),
                     CreatedAt = endpoint.CreatedAt,
                 }
@@ -358,11 +407,12 @@ public class EndpointsController : ControllerBase
                     catch { }
                 }
 
-                _db.Endpoints.Add(new Domain.Entities.Endpoint
+                _db.Endpoints.Add(new Endpoint
                 {
                     Hostname = target,
                     IpAddress = resolvedIp,
-                    Status = EndpointStatus.Online,
+                    Status = EndpointStatus.Unknown,
+                    AuthStatus = "Pending Authorization",
                     ApprovalStatus = EndpointApprovalStatus.Approved,
                     Description = "Imported from file upload",
                 });
@@ -377,13 +427,12 @@ public class EndpointsController : ControllerBase
             Target = file.FileName,
             Result = "Success",
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"imported\": {importedCount}, \"totalParsed\": {uniqueTargets.Count}}}",
+            DetailsJson = JsonSerializer.Serialize(new { imported = importedCount, totalParsed = uniqueTargets.Count }),
         });
 
         await _db.SaveChangesAsync();
-
         _logger.LogInformation("Imported {Count} endpoints from file {FileName}", importedCount, file.FileName);
-        return Ok(new ApiResponse { Success = true, Message = $"Imported {importedCount} unique endpoints successfully" });
+        return Ok(new ApiResponse { Success = true, Message = $"Imported {importedCount} unique endpoints successfully. Pending Authorization." });
     }
 
     [HttpPost("bulk-action")]
@@ -393,177 +442,250 @@ public class EndpointsController : ControllerBase
         if (request.EndpointIds == null || request.EndpointIds.Count == 0)
             return BadRequest(new ApiResponse { Success = false, Message = "Select at least one endpoint" });
 
-        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
+        var endpoints = await _db.Endpoints
+            .Include(e => e.CredentialProfile)
+            .Where(e => request.EndpointIds.Contains(e.Id))
+            .ToListAsync();
+
         var bulkOp = new BulkOperation
         {
             OperationType = request.Action,
             RequestedBy = User.Identity?.Name ?? "Admin",
             TotalEndpoints = endpoints.Count,
-            SuccessCount = endpoints.Count,
-            FailedCount = 0,
-            Status = "Completed",
+            Status = "Processing",
             CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
         };
+
+        int successCount = 0;
+        int failedCount = 0;
 
         foreach (var ep in endpoints)
         {
-            if (request.Action == "Approve") ep.ApprovalStatus = EndpointApprovalStatus.Approved;
-            else if (request.Action == "Reject") ep.ApprovalStatus = EndpointApprovalStatus.Rejected;
-            else if (request.Action == "CheckConnection") ep.Status = EndpointStatus.Online;
-
-            bulkOp.Items.Add(new BulkOperationItem
+            if (request.Action == "CheckConnection")
             {
-                EndpointId = ep.Id,
-                EndpointHostname = ep.Hostname,
-                Status = "Success",
-                ResultMessage = $"Bulk action '{request.Action}' executed successfully on {ep.Hostname}.",
-                CompletedAt = DateTime.UtcNow,
-            });
+                var credProfile = await ResolveCredentialProfileAsync(ep);
+                var queryResult = await _wmiService.ExecuteLiveEndpointQueryAsync(ep, credProfile);
+
+                if (queryResult.IsSuccess)
+                {
+                    ep.Status = EndpointStatus.Online;
+                    ep.AuthStatus = queryResult.AuthStatus;
+                    ep.AuthUser = queryResult.AuthUser;
+                    ep.DomainWorkgroup = queryResult.DomainWorkgroup;
+                    ep.CurrentInteractiveUser = queryResult.CurrentInteractiveUser;
+                    ep.SystemUptime = queryResult.SystemUptime;
+                    ep.LastSuccessfulRefresh = DateTime.UtcNow;
+                    successCount++;
+
+                    bulkOp.Items.Add(new BulkOperationItem
+                    {
+                        EndpointId = ep.Id,
+                        EndpointHostname = ep.Hostname,
+                        Status = "Success",
+                        ResultMessage = $"Endpoint '{ep.Hostname}' authenticated successfully as '{ep.AuthUser}' ({ep.Status}).",
+                        CompletedAt = DateTime.UtcNow,
+                    });
+                }
+                else
+                {
+                    ep.Status = EndpointStatus.Offline;
+                    ep.AuthStatus = queryResult.AuthStatus;
+                    failedCount++;
+
+                    bulkOp.Items.Add(new BulkOperationItem
+                    {
+                        EndpointId = ep.Id,
+                        EndpointHostname = ep.Hostname,
+                        Status = "Failed",
+                        ResultMessage = $"Connection check failed for '{ep.Hostname}': {queryResult.ErrorMessage}",
+                        CompletedAt = DateTime.UtcNow,
+                    });
+                }
+            }
+            else
+            {
+                if (request.Action == "Approve") ep.ApprovalStatus = EndpointApprovalStatus.Approved;
+                else if (request.Action == "Reject") ep.ApprovalStatus = EndpointApprovalStatus.Rejected;
+                successCount++;
+
+                bulkOp.Items.Add(new BulkOperationItem
+                {
+                    EndpointId = ep.Id,
+                    EndpointHostname = ep.Hostname,
+                    Status = "Success",
+                    ResultMessage = $"Bulk action '{request.Action}' executed on {ep.Hostname}.",
+                    CompletedAt = DateTime.UtcNow,
+                });
+            }
         }
+
+        bulkOp.SuccessCount = successCount;
+        bulkOp.FailedCount = failedCount;
+        bulkOp.Status = "Completed";
+        bulkOp.CompletedAt = DateTime.UtcNow;
 
         _db.BulkOperations.Add(bulkOp);
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Executed bulk action {Action} on {Count} endpoints", request.Action, endpoints.Count);
         return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
     }
 
-    [HttpPost("create-local-admin")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> CreateLocalAdmin([FromBody] CreateLocalAdminRequest request)
+    [HttpPost("{id:guid}/check-connection")]
+    public async Task<IActionResult> CheckConnection(Guid id)
     {
-        if (request.EndpointIds == null || request.EndpointIds.Count == 0)
-            return BadRequest(new ApiResponse { Success = false, Message = "Select at least one target endpoint" });
+        var endpoint = await _db.Endpoints
+            .Include(e => e.CredentialProfile)
+            .Include(e => e.HardwareInventory)
+            .Include(e => e.NetworkInterfaces)
+            .Include(e => e.SoftwareInventory)
+            .FirstOrDefaultAsync(e => e.Id == id);
 
-        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
-        var bulkOp = new BulkOperation
-        {
-            OperationType = "CreateLocalUser_ra",
-            RequestedBy = User.Identity?.Name ?? "Admin",
-            TotalEndpoints = endpoints.Count,
-            SuccessCount = endpoints.Count,
-            FailedCount = 0,
-            Status = "Completed",
-            CreatedAt = DateTime.UtcNow,
-            CompletedAt = DateTime.UtcNow,
-        };
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
 
-        foreach (var ep in endpoints)
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var queryResult = await _wmiService.ExecuteLiveEndpointQueryAsync(endpoint, credProfile);
+
+        if (queryResult.IsSuccess)
         {
-            bulkOp.Items.Add(new BulkOperationItem
+            endpoint.Status = EndpointStatus.Online;
+            endpoint.AuthStatus = queryResult.AuthStatus;
+            endpoint.AuthUser = queryResult.AuthUser;
+            endpoint.DomainWorkgroup = queryResult.DomainWorkgroup;
+            endpoint.CurrentInteractiveUser = queryResult.CurrentInteractiveUser;
+            endpoint.SystemUptime = queryResult.SystemUptime;
+            endpoint.DeviceType = queryResult.DeviceType ?? endpoint.DeviceType;
+            endpoint.LastSuccessfulRefresh = DateTime.UtcNow;
+            var firstMac = queryResult.NetworkInterfaces.FirstOrDefault(n => !string.IsNullOrWhiteSpace(n.MacAddress))?.MacAddress;
+            if (!string.IsNullOrWhiteSpace(firstMac))
             {
-                EndpointId = ep.Id,
-                EndpointHostname = ep.Hostname,
-                Status = "Success",
-                ResultMessage = $"Managed local account 'ra' provisioned in Administrators group on {ep.Hostname}.",
-                CompletedAt = DateTime.UtcNow,
+                endpoint.MacAddress = firstMac;
+            }
+
+            // Update Hardware Inventory
+            if (queryResult.Hardware != null)
+            {
+                if (endpoint.HardwareInventory == null)
+                {
+                    endpoint.HardwareInventory = new HardwareInventory { EndpointId = endpoint.Id };
+                    _db.HardwareInventories.Add(endpoint.HardwareInventory);
+                }
+                var hw = endpoint.HardwareInventory;
+                hw.Manufacturer = queryResult.Hardware.Manufacturer;
+                hw.Model = queryResult.Hardware.Model;
+                hw.SerialNumber = queryResult.Hardware.SerialNumber;
+                hw.BiosVersion = queryResult.Hardware.BiosVersion;
+                hw.ProcessorName = queryResult.Hardware.ProcessorName;
+                hw.Cores = queryResult.Hardware.Cores;
+                hw.LogicalProcessors = queryResult.Hardware.LogicalProcessors;
+                hw.ClockSpeedMhz = queryResult.Hardware.ClockSpeedMhz;
+                hw.TotalRamMb = queryResult.Hardware.TotalRamMb;
+                hw.Architecture = queryResult.Hardware.Architecture;
+                hw.CollectedAt = DateTime.UtcNow;
+
+                var existingDrives = await _db.StorageDrives.Where(d => d.HardwareInventoryId == hw.Id).ToListAsync();
+                _db.StorageDrives.RemoveRange(existingDrives);
+
+                foreach (var d in queryResult.Drives)
+                {
+                    _db.StorageDrives.Add(new StorageDrive
+                    {
+                        HardwareInventoryId = hw.Id,
+                        DriveLetter = d.DriveLetter,
+                        CapacityGb = d.CapacityGb,
+                        FreeSpaceGb = d.FreeSpaceGb,
+                        UsedSpaceGb = d.UsedSpaceGb,
+                        FileSystem = d.FileSystem,
+                        DiskType = d.DiskType
+                    });
+                }
+            }
+
+            // Update Network Interfaces
+            if (queryResult.NetworkInterfaces.Count > 0)
+            {
+                var existingNics = await _db.EndpointNetworkInterfaces.Where(n => n.EndpointId == endpoint.Id).ToListAsync();
+                _db.EndpointNetworkInterfaces.RemoveRange(existingNics);
+
+                foreach (var nic in queryResult.NetworkInterfaces)
+                {
+                    _db.EndpointNetworkInterfaces.Add(new EndpointNetworkInterface
+                    {
+                        EndpointId = endpoint.Id,
+                        AdapterName = nic.AdapterName,
+                        Ipv4Address = nic.Ipv4Address,
+                        Ipv6Address = nic.Ipv6Address,
+                        MacAddress = nic.MacAddress,
+                        ConnectionState = nic.ConnectionState,
+                        LinkSpeedMbps = nic.LinkSpeedMbps,
+                        Gateway = nic.Gateway,
+                        DnsServers = nic.DnsServers
+                    });
+                }
+            }
+
+            // Update Software Inventory
+            if (queryResult.SoftwareInventory.Count > 0)
+            {
+                var existingSw = await _db.SoftwareInventoryItems.Where(s => s.EndpointId == endpoint.Id).ToListAsync();
+                _db.SoftwareInventoryItems.RemoveRange(existingSw);
+
+                foreach (var sw in queryResult.SoftwareInventory)
+                {
+                    _db.SoftwareInventoryItems.Add(new SoftwareInventoryItem
+                    {
+                        EndpointId = endpoint.Id,
+                        SoftwareName = sw.SoftwareName,
+                        Version = sw.Version,
+                        Publisher = sw.Publisher,
+                        Architecture = Domain.Enums.SoftwareArchitecture.X64,
+                        InstallDate = DateTime.UtcNow
+                    });
+                }
+            }
+
+            endpoint.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Live connection check & query succeeded for {Hostname}", endpoint.Hostname);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = $"Endpoint '{endpoint.Hostname}' successfully authenticated and queried. Status: Authorized.",
+                Data = new
+                {
+                    status = endpoint.Status.ToString(),
+                    authStatus = endpoint.AuthStatus,
+                    authUser = endpoint.AuthUser,
+                    domain = endpoint.DomainWorkgroup,
+                    currentUser = endpoint.CurrentInteractiveUser,
+                    lastRefresh = endpoint.LastSuccessfulRefresh,
+                }
             });
         }
-
-        _db.BulkOperations.Add(bulkOp);
-        _db.AuditEvents.Add(new AuditEvent
+        else
         {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "CreateLocalUser_ra",
-            Target = $"{endpoints.Count} endpoints",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"managedAccount\": \"ra\", \"group\": \"Administrators\"}}",
-        });
+            endpoint.Status = EndpointStatus.Offline;
+            endpoint.AuthStatus = queryResult.AuthStatus;
+            endpoint.SectionStatusesJson = JsonSerializer.Serialize(queryResult.SectionStatuses);
+            endpoint.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
 
-        await _db.SaveChangesAsync();
+            _logger.LogWarning("Connection check failed for {Hostname}: {Reason}", endpoint.Hostname, queryResult.ErrorMessage);
 
-        _logger.LogInformation("Managed account 'ra' created on {Count} endpoints", endpoints.Count);
-        return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
-    }
-
-    [HttpPost("{id:guid}/users/reset-password")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> ResetUserPassword(Guid id, [FromBody] ResetEndpointUserPasswordRequest request)
-    {
-        var endpoint = await _db.Endpoints.FindAsync(id);
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
-
-        if (string.IsNullOrWhiteSpace(request.TargetUsername) || string.IsNullOrWhiteSpace(request.NewPassword))
-            return BadRequest(new ApiResponse { Success = false, Message = "Target username and new password are required" });
-
-        _db.AuditEvents.Add(new AuditEvent
-        {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "ResetEndpointUserPassword",
-            Target = $"{endpoint.Hostname}\\{request.TargetUsername}",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-        });
-
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Password for user '{request.TargetUsername}' on {endpoint.Hostname} reset successfully" });
-    }
-
-    [HttpPost("{id:guid}/users/update-groups")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> UpdateUserGroups(Guid id, [FromBody] UpdateEndpointUserGroupsRequest request)
-    {
-        var endpoint = await _db.Endpoints.FindAsync(id);
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
-
-        _db.AuditEvents.Add(new AuditEvent
-        {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "UpdateEndpointUserGroups",
-            Target = $"{endpoint.Hostname}\\{request.TargetUsername}",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"groups\": \"{string.Join(",", request.Groups)}\"}}",
-        });
-
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Groups for user '{request.TargetUsername}' updated on {endpoint.Hostname}" });
-    }
-
-    [HttpPost("{id:guid}/software/install")]
-    [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> InstallSoftwareOnEndpoint(Guid id, [FromBody] InstallSoftwareRequest request)
-    {
-        var endpoint = await _db.Endpoints.FindAsync(id);
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
-
-        _db.AuditEvents.Add(new AuditEvent
-        {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "InstallSoftware",
-            Target = $"{endpoint.Hostname} ({request.PackageName})",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-        });
-
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Package '{request.PackageName}' installation initiated on {endpoint.Hostname}" });
-    }
-
-    [HttpPost("{id:guid}/software/uninstall")]
-    [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> UninstallSoftwareFromEndpoint(Guid id, [FromBody] UninstallSoftwareRequest request)
-    {
-        var endpoint = await _db.Endpoints.FindAsync(id);
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
-
-        _db.AuditEvents.Add(new AuditEvent
-        {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "UninstallSoftware",
-            Target = $"{endpoint.Hostname} ({request.SoftwareName})",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-        });
-
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Uninstallation of '{request.SoftwareName}' initiated on {endpoint.Hostname}" });
+            return Ok(new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"Live remote query to '{endpoint.Hostname}' failed: {queryResult.ErrorMessage}",
+                Data = new
+                {
+                    status = endpoint.Status.ToString(),
+                    authStatus = endpoint.AuthStatus,
+                    errorMessage = queryResult.ErrorMessage,
+                }
+            });
+        }
     }
 
     [HttpPost("{id:guid}/power")]
@@ -574,17 +696,25 @@ public class EndpointsController : ControllerBase
         if (endpoint == null)
             return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
 
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var result = await _wmiService.ExecutePowerActionAsync(endpoint, credProfile, request.Action);
+
         _db.AuditEvents.Add(new AuditEvent
         {
             Actor = User.Identity?.Name ?? "Admin",
             Action = $"PowerAction_{request.Action}",
             Target = endpoint.Hostname,
-            Result = "Success",
+            Result = result.Success ? "Success" : "Failed",
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = JsonSerializer.Serialize(new { action = request.Action, result.Message, result.FailureReason }),
         });
 
         await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Power action '{request.Action}' executed on {endpoint.Hostname}" });
+
+        if (result.Success)
+            return Ok(new ApiResponse { Success = true, Message = result.Message });
+        else
+            return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
     [HttpPost("{id:guid}/credential")]
@@ -604,14 +734,14 @@ public class EndpointsController : ControllerBase
             if (profile != null)
             {
                 endpoint.AuthUser = profile.Username;
-                endpoint.AuthStatus = "Authorized";
+                endpoint.AuthStatus = "Pending Authorization";
             }
         }
         else if (request.AuthMode == "Inherit")
         {
             var defaultProfile = await _db.CredentialProfiles.OrderBy(c => c.CreatedAt).FirstOrDefaultAsync();
-            endpoint.AuthUser = defaultProfile?.Username ?? "ra";
-            endpoint.AuthStatus = "Authorized";
+            endpoint.AuthUser = defaultProfile?.Username;
+            endpoint.AuthStatus = "Pending Authorization";
         }
         else if (request.AuthMode == "AskWhenConnecting")
         {
@@ -620,63 +750,21 @@ public class EndpointsController : ControllerBase
         }
 
         endpoint.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Credential configuration updated for endpoint {Hostname}", endpoint.Hostname);
-        return Ok(new ApiResponse { Success = true, Message = $"Credential mode set to '{request.AuthMode}'" });
-    }
-
-    [HttpPost("{id:guid}/check-connection")]
-    public async Task<IActionResult> CheckConnection(Guid id)
-    {
-        var endpoint = await _db.Endpoints
-            .Include(e => e.CredentialProfile)
-            .FirstOrDefaultAsync(e => e.Id == id);
-
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
-
-        bool isAlive = false;
-        var targetIp = endpoint.IpAddress ?? endpoint.Hostname;
-
-        try
+        _db.AuditEvents.Add(new AuditEvent
         {
-            using var ping = new System.Net.NetworkInformation.Ping();
-            var reply = await ping.SendPingAsync(targetIp, 500);
-            isAlive = reply.Status == System.Net.NetworkInformation.IPStatus.Success;
-        }
-        catch { }
-
-        if (!isAlive)
-        {
-            try
-            {
-                using var client = new System.Net.Sockets.TcpClient();
-                var connectTask = client.ConnectAsync(targetIp, 135);
-                var timeoutTask = Task.Delay(500);
-                var completed = await Task.WhenAny(connectTask, timeoutTask);
-                isAlive = completed == connectTask && client.Connected;
-            }
-            catch { }
-        }
-
-        endpoint.Status = isAlive ? EndpointStatus.Online : EndpointStatus.Offline;
-        endpoint.AuthStatus = isAlive ? "Authorized" : "Timeout";
-        endpoint.UpdatedAt = DateTime.UtcNow;
-
-        await _db.SaveChangesAsync();
-
-        return Ok(new ApiResponse<object>
-        {
-            Success = true,
-            Message = isAlive ? $"Endpoint '{endpoint.Hostname}' is Online and Authorized" : $"Endpoint '{endpoint.Hostname}' is Offline",
-            Data = new
-            {
-                status = endpoint.Status.ToString(),
-                authStatus = endpoint.AuthStatus,
-                authUser = endpoint.AuthUser ?? (endpoint.CredentialProfile?.Username ?? "ra"),
-            }
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "UpdateEndpointCredential",
+            Target = endpoint.Hostname,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = JsonSerializer.Serialize(new { authMode = request.AuthMode, profileId = request.CredentialProfileId }),
         });
+
+        await _db.SaveChangesAsync();
+        _logger.LogInformation("Credential mode updated to '{Mode}' for {Hostname}", request.AuthMode, endpoint.Hostname);
+
+        return Ok(new ApiResponse { Success = true, Message = $"Credential mode set to '{request.AuthMode}'" });
     }
 
     [HttpPost("{id:guid}/local-accounts/create")]
@@ -690,102 +778,118 @@ public class EndpointsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new ApiResponse { Success = false, Message = "Username and password are required" });
 
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var result = await _wmiService.CreateLocalAccountAsync(endpoint, credProfile, request);
+
         _db.AuditEvents.Add(new AuditEvent
         {
             Actor = User.Identity?.Name ?? "Admin",
             Action = "CreateLocalAccount",
             Target = $"{endpoint.Hostname}\\{request.Username}",
-            Result = "Success",
+            Result = result.Success ? "Success" : "Failed",
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"isAdmin\": {request.IsAdmin.ToString().ToLower()}}}",
+            DetailsJson = JsonSerializer.Serialize(new { username = request.Username, isAdmin = request.IsAdmin }),
         });
 
         await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Local account '{request.Username}' created on {endpoint.Hostname}" });
+
+        if (result.Success) return Ok(new ApiResponse { Success = true, Message = result.Message });
+        return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    private List<LocalAccountDto> GetLocalAccountsForEndpoint(RemoteAdmin.Domain.Entities.Endpoint ep)
+    [HttpPost("{id:guid}/users/reset-password")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> ResetUserPassword(Guid id, [FromBody] ResetEndpointUserPasswordRequest request)
     {
-        var accounts = new List<LocalAccountDto>
-        {
-            new LocalAccountDto
-            {
-                Username = "Administrator",
-                FullName = "Built-in Administrator",
-                Description = "Built-in account for administering the computer/domain",
-                IsEnabled = true,
-                IsAdmin = true,
-                Groups = ["Administrators"],
-                PasswordStatus = "Password Never Expires",
-            },
-            new LocalAccountDto
-            {
-                Username = "ra",
-                FullName = "Remote Admin Service Account",
-                Description = "Managed administrative account for enterprise automation",
-                IsEnabled = true,
-                IsAdmin = true,
-                Groups = ["Administrators", "Remote Desktop Users"],
-                PasswordStatus = "Password Set (Encrypted)",
-            },
-            new LocalAccountDto
-            {
-                Username = "DefaultAccount",
-                FullName = "System Default Account",
-                Description = "A user account managed by the system",
-                IsEnabled = false,
-                IsAdmin = false,
-                Groups = ["Users"],
-                PasswordStatus = "Disabled",
-            },
-            new LocalAccountDto
-            {
-                Username = "WDAGUtilityAccount",
-                FullName = "Windows Defender Application Guard Account",
-                Description = "Managed account used by Windows Defender Application Guard",
-                IsEnabled = false,
-                IsAdmin = false,
-                Groups = ["Users"],
-                PasswordStatus = "Disabled",
-            },
-        };
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
 
-        return accounts;
+        if (string.IsNullOrWhiteSpace(request.TargetUsername) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest(new ApiResponse { Success = false, Message = "Target username and new password are required" });
+
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var result = await _wmiService.ResetLocalAccountPasswordAsync(endpoint, credProfile, request.TargetUsername, request.NewPassword);
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "ResetEndpointUserPassword",
+            Target = $"{endpoint.Hostname}\\{request.TargetUsername}",
+            Result = result.Success ? "Success" : "Failed",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+
+        if (result.Success) return Ok(new ApiResponse { Success = true, Message = result.Message });
+        return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    private List<SecuritySoftwareDto> GetSecuritySoftwareForEndpoint(RemoteAdmin.Domain.Entities.Endpoint ep)
+    [HttpPost("{id:guid}/software/install")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> InstallSoftwareOnEndpoint(Guid id, [FromBody] InstallSoftwareRequest request)
     {
-        return new List<SecuritySoftwareDto>
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var result = await _wmiService.InstallSoftwareAsync(endpoint, credProfile, request.PackageName, request.Version);
+
+        _db.AuditEvents.Add(new AuditEvent
         {
-            new SecuritySoftwareDto
-            {
-                ProductName = "Windows Defender Antivirus",
-                Vendor = "Microsoft Corporation",
-                Version = "4.18.23110.3",
-                Status = "Active & Protected",
-                IsEnabled = true,
-                IsRunning = true,
-                LastUpdated = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
-            },
-            new SecuritySoftwareDto
-            {
-                ProductName = "Windows Defender Firewall",
-                Vendor = "Microsoft Corporation",
-                Version = "10.0.22621.1",
-                Status = "Active (Private/Public Profiles)",
-                IsEnabled = true,
-                IsRunning = true,
-                LastUpdated = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"),
-            },
-        };
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "InstallSoftware",
+            Target = $"{endpoint.Hostname} ({request.PackageName})",
+            Result = result.Success ? "Success" : "Failed",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+
+        if (result.Success) return Ok(new ApiResponse { Success = true, Message = result.Message });
+        return BadRequest(new ApiResponse { Success = false, Message = result.Message });
+    }
+
+    [HttpPost("{id:guid}/software/uninstall")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> UninstallSoftwareFromEndpoint(Guid id, [FromBody] UninstallSoftwareRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        var credProfile = await ResolveCredentialProfileAsync(endpoint);
+        var result = await _wmiService.UninstallSoftwareAsync(endpoint, credProfile, request.SoftwareName);
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "UninstallSoftware",
+            Target = $"{endpoint.Hostname} ({request.SoftwareName})",
+            Result = result.Success ? "Success" : "Failed",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+
+        if (result.Success) return Ok(new ApiResponse { Success = true, Message = result.Message });
+        return BadRequest(new ApiResponse { Success = false, Message = result.Message });
+    }
+
+    private async Task<CredentialProfile?> ResolveCredentialProfileAsync(Endpoint endpoint)
+    {
+        if (endpoint.CredentialProfileId.HasValue)
+        {
+            return await _db.CredentialProfiles.FindAsync(endpoint.CredentialProfileId.Value);
+        }
+
+        if (endpoint.AuthMode == "Inherit")
+        {
+            return await _db.CredentialProfiles.OrderBy(c => c.CreatedAt).FirstOrDefaultAsync();
+        }
+
+        return null;
     }
 }
-
-public record CreateEndpointRequest(string? Target, string? Hostname, string? Fqdn, string? IpAddress, string? MacAddress, string? Description, string? Location, Guid? GroupId);
-public record BulkActionRequest(string Action, List<Guid> EndpointIds);
-public record CreateLocalAdminRequest(List<Guid> EndpointIds);
-public record ResetEndpointUserPasswordRequest(string TargetUsername, string NewPassword);
-public record UpdateEndpointUserGroupsRequest(string TargetUsername, List<string> Groups);
-public record InstallSoftwareRequest(string PackageName, string? Version);
-public record UninstallSoftwareRequest(string SoftwareName);
-public record PowerControlRequest(string Action);

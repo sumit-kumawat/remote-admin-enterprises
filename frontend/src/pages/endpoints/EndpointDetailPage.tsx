@@ -31,6 +31,9 @@ import {
   Search,
   RefreshCw,
   Lock,
+  Clock,
+  Zap,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const EndpointDetailPage: React.FC = () => {
@@ -38,7 +41,7 @@ export const EndpointDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'login' | 'accounts' | 'security' | 'power' | 'hardware' | 'network' | 'software' | 'drives'
+    'overview' | 'login' | 'accounts' | 'security' | 'power' | 'network' | 'software' | 'drives'
   >('overview');
 
   const [softwareSearch, setSoftwareSearch] = useState('');
@@ -95,11 +98,16 @@ export const EndpointDetailPage: React.FC = () => {
   const hw = endpoint.hardware;
   const nics = endpoint.networkInterfaces || [];
   const drives = endpoint.drives || [];
+  const physicalDisks = endpoint.physicalDisks || [];
   const softwareList = (endpoint.software || []).filter((s) =>
     s.softwareName.toLowerCase().includes(softwareSearch.toLowerCase())
   );
   const localAccounts = endpoint.localAccounts || [];
   const securitySoftware = endpoint.securitySoftware || [];
+  const sectionStatuses = endpoint.sectionStatuses || {};
+
+  const isOnline = endpoint.status.toLowerCase() === 'online';
+  const hasMacAddress = Boolean(endpoint.macAddress && endpoint.macAddress.trim().length > 0);
 
   const handleCopyToClipboard = (text: string, label: string) => {
     if (!text) return;
@@ -124,9 +132,13 @@ export const EndpointDetailPage: React.FC = () => {
 
   const handleCheckConnection = async () => {
     try {
-      toast.info('Checking Connectivity...', `Pinging & testing authentication to ${endpoint.hostname}`);
+      toast.info('Authenticating Remote Host...', `Testing WMI connectivity & live queries on ${endpoint.hostname}`);
       const res = await endpointsApi.checkConnection(endpoint.id);
-      toast.success('Connection Check Complete', res.message || 'Status updated');
+      if (res.success) {
+        toast.success('Endpoint Authorized & Queried', res.message || 'Live system data updated.');
+      } else {
+        toast.error('Connection Check Failed', res.message || 'Remote WMI query failed.');
+      }
       refetch();
     } catch (err: any) {
       toast.error('Check Failed', err?.response?.data?.message || 'Connection check failed');
@@ -137,8 +149,12 @@ export const EndpointDetailPage: React.FC = () => {
     if (!powerActionModal.action) return;
     setIsExecutingPower(true);
     try {
-      await endpointsApi.powerControl(endpoint.id, powerActionModal.action);
-      toast.success('Power Operation Dispatched', `Command '${powerActionModal.action}' sent to ${endpoint.hostname}`);
+      const res = await endpointsApi.powerControl(endpoint.id, powerActionModal.action);
+      if (res.success) {
+        toast.success('Power Action Dispatched', res.message || `Command '${powerActionModal.action}' sent to ${endpoint.hostname}`);
+      } else {
+        toast.error('Power Control Failed', res.message || 'Execution failed');
+      }
       setPowerActionModal({ isOpen: false, action: null });
       refetch();
     } catch (err: any) {
@@ -205,22 +221,36 @@ export const EndpointDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleCheckConnection}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded shadow-xs cursor-pointer"
             >
-              <RefreshCw className="h-3.5 w-3.5 text-[#2F3EA0]" /> Check Connection
+              <RefreshCw className="h-3.5 w-3.5 text-[#2F3EA0]" /> Check Connection & Authenticate
             </button>
             <button
               onClick={() => setPowerActionModal({ isOpen: true, action: 'Restart' })}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs"
+              disabled={!isOnline}
+              title={!isOnline ? 'Endpoint is Offline. Restart unavailable.' : 'Restart System'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Restart Endpoint
             </button>
             <button
               onClick={() => setPowerActionModal({ isOpen: true, action: 'Shutdown' })}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded shadow-xs"
+              disabled={!isOnline}
+              title={!isOnline ? 'Endpoint is Offline. Shutdown unavailable.' : 'Shutdown System'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Power className="h-3.5 w-3.5" /> Shutdown
             </button>
+            {!isOnline && (
+              <button
+                onClick={() => setPowerActionModal({ isOpen: true, action: 'PowerOn' })}
+                disabled={!hasMacAddress}
+                title={!hasMacAddress ? 'Wake-on-LAN requires a valid MAC address' : 'Send Wake-on-LAN magic packet'}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Zap className="h-3.5 w-3.5 text-amber-700" /> Power On (WOL)
+              </button>
+            )}
           </div>
         </div>
 
@@ -252,7 +282,12 @@ export const EndpointDetailPage: React.FC = () => {
                   <ShieldCheck className="h-3 w-3" /> Authorized
                 </span>
               )}
-              {endpoint.authStatus !== 'Authorized' && (
+              {endpoint.authStatus === 'Pending Authorization' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
+                  <Clock className="h-3 w-3" /> Pending Authorization
+                </span>
+              )}
+              {endpoint.authStatus !== 'Authorized' && endpoint.authStatus !== 'Pending Authorization' && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                   <ShieldAlert className="h-3 w-3" /> {endpoint.authStatus}
                 </span>
@@ -286,14 +321,17 @@ export const EndpointDetailPage: React.FC = () => {
                 )}
               </span>
               <span className="text-slate-700 font-semibold font-sans">
-                Active User: <span className="bg-slate-100 px-1.5 py-0.5 rounded border">{endpoint.authUser}</span>
+                Auth User: <span className="bg-slate-100 px-1.5 py-0.5 rounded border">{endpoint.authUser || 'No credential configured'}</span>
+              </span>
+              <span className="text-slate-700 font-semibold font-sans">
+                Interactive User: <span className="bg-blue-50 text-blue-900 px-1.5 py-0.5 rounded border border-blue-200">{endpoint.currentInteractiveUser || 'No interactive user'}</span>
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs Bar */}
+      {/* Tabs Bar (Hardware Specs tab removed and merged into System Overview) */}
       <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
         <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 overflow-x-auto">
           {[
@@ -302,10 +340,9 @@ export const EndpointDetailPage: React.FC = () => {
             { id: 'accounts', label: `Local Accounts (${localAccounts.length})`, icon: UserCheck },
             { id: 'security', label: `Security Software (${securitySoftware.length})`, icon: Shield },
             { id: 'power', label: 'Power Controls', icon: Power },
-            { id: 'hardware', label: 'Hardware Specs', icon: Cpu },
             { id: 'network', label: `Network Interfaces (${nics.length})`, icon: Network },
             { id: 'software', label: `Installed Apps (${endpoint.software?.length || 0})`, icon: Package },
-            { id: 'drives', label: `Drives (${drives.length})`, icon: HardDrive },
+            { id: 'drives', label: `Storage & Disks (${drives.length})`, icon: HardDrive },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -313,7 +350,7 @@ export const EndpointDetailPage: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-4 py-2.5 border-b-2 font-medium transition-colors shrink-0 ${
+                className={`flex items-center gap-1.5 px-4 py-2.5 border-b-2 font-medium transition-colors shrink-0 cursor-pointer ${
                   isActive
                     ? 'border-[#2F3EA0] text-[#2F3EA0] bg-white font-semibold'
                     : 'border-transparent hover:text-slate-900 hover:bg-slate-100/60'
@@ -328,53 +365,72 @@ export const EndpointDetailPage: React.FC = () => {
 
         {/* Tab Panels */}
         <div className="p-4">
-          {/* Overview Tab */}
+          {/* Overview Tab (Includes Hardware Specifications) */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border border-slate-200 rounded-md bg-slate-50/50 space-y-3">
-                <div className="font-semibold text-slate-800 text-xs border-b border-slate-200 pb-1.5 flex items-center gap-2">
-                  <Monitor className="h-4 w-4 text-[#2F3EA0]" />
-                  <span>Computer & System Overview</span>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Computer & System Overview */}
+                <div className="p-4 border border-slate-200 rounded-md bg-slate-50/50 space-y-3">
+                  <div className="font-semibold text-slate-800 text-xs border-b border-slate-200 pb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-[#2F3EA0]" />
+                      <span>Computer & System Overview</span>
+                    </div>
+                    {endpoint.lastSuccessfulRefresh && (
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        Last Live Query: {new Date(endpoint.lastSuccessfulRefresh).toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
+                    <span className="text-slate-500">Computer Hostname:</span>
+                    <span className="font-semibold text-slate-900">{endpoint.hostname}</span>
+                    <span className="text-slate-500">Operating System:</span>
+                    <span className="font-medium text-slate-800">{endpoint.deviceType === 'Windows' ? 'Windows Server / Workstation' : endpoint.deviceType}</span>
+                    <span className="text-slate-500">OS Architecture:</span>
+                    <span className="font-mono text-slate-800">{hw?.architecture || 'Unavailable'}</span>
+                    <span className="text-slate-500">Primary IP Address:</span>
+                    <span className="font-mono text-slate-800">{endpoint.ipAddress || 'Unavailable'}</span>
+                    <span className="text-slate-500">MAC Address:</span>
+                    <span className="font-mono text-slate-800">{endpoint.macAddress || 'Unavailable'}</span>
+                    <span className="text-slate-500">Domain / Workgroup:</span>
+                    <span className="font-semibold text-slate-800">{endpoint.domainWorkgroup || 'Unavailable'}</span>
+                    <span className="text-slate-500">Current Interactive User:</span>
+                    <span className="font-mono text-blue-900 font-semibold">{endpoint.currentInteractiveUser || 'No interactive user'}</span>
+                    <span className="text-slate-500">Remote Authentication User:</span>
+                    <span className="font-mono text-slate-800">{endpoint.authUser || 'No credential configured'}</span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  <span className="text-slate-500">Computer Name:</span>
-                  <span className="font-semibold text-slate-900">{endpoint.hostname}</span>
-                  <span className="text-slate-500">Operating System:</span>
-                  <span className="font-medium text-slate-800">Windows Server 2022 / Windows 11 Pro</span>
-                  <span className="text-slate-500">OS Architecture:</span>
-                  <span className="font-mono text-slate-800">{hw?.architecture || 'x64-based PC'}</span>
-                  <span className="text-slate-500">Primary IP Address:</span>
-                  <span className="font-mono text-slate-800">{endpoint.ipAddress || '192.168.100.41'}</span>
-                  <span className="text-slate-500">MAC Address:</span>
-                  <span className="font-mono text-slate-800">{endpoint.macAddress || '00:15:5D:01:22:45'}</span>
-                  <span className="text-slate-500">Domain / Workgroup:</span>
-                  <span className="font-semibold text-slate-800">WORKGROUP (Standalone)</span>
-                </div>
-              </div>
 
-              <div className="p-4 border border-slate-200 rounded-md bg-slate-50/50 space-y-3">
-                <div className="font-semibold text-slate-800 text-xs border-b border-slate-200 pb-1.5 flex items-center gap-2">
-                  <Cpu className="h-4 w-4 text-[#2F3EA0]" />
-                  <span>Hardware & Health Summary</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5 text-xs">
-                  <span className="text-slate-500">Manufacturer:</span>
-                  <span className="font-medium text-slate-900">{hw?.manufacturer || 'Dell Inc. / QEMU Virtual Machine'}</span>
-                  <span className="text-slate-500">Model:</span>
-                  <span className="font-medium text-slate-900">{hw?.model || 'Standard PC (Q35 + ICH9, 2009)'}</span>
-                  <span className="text-slate-500">Serial Number:</span>
-                  <span className="font-mono text-slate-900 flex items-center gap-1">
-                    <span>{hw?.serialNumber || 'CN-09X281-72901'}</span>
-                    <button onClick={() => handleCopyToClipboard(hw?.serialNumber || 'CN-09X281-72901', 'Serial Number')}>
-                      <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
-                    </button>
-                  </span>
-                  <span className="text-slate-500">Processor:</span>
-                  <span className="font-medium text-slate-800">{hw?.processorName || 'Intel(R) Core(TM) i7-11700 CPU @ 2.50GHz'}</span>
-                  <span className="text-slate-500">Total RAM:</span>
-                  <span className="font-semibold text-slate-900">{hw?.totalRamMb ? Math.round(hw.totalRamMb / 1024) : 16} GB</span>
-                  <span className="text-slate-500">System Uptime:</span>
-                  <span className="font-mono text-emerald-700 font-semibold">14 days, 6 hours</span>
+                {/* Hardware & Health Summary */}
+                <div className="p-4 border border-slate-200 rounded-md bg-slate-50/50 space-y-3">
+                  <div className="font-semibold text-slate-800 text-xs border-b border-slate-200 pb-1.5 flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-[#2F3EA0]" />
+                    <span>Hardware Specifications & Health</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5 text-xs">
+                    <span className="text-slate-500">System Manufacturer:</span>
+                    <span className="font-medium text-slate-900">{hw?.manufacturer || 'Unavailable'}</span>
+                    <span className="text-slate-500">Model:</span>
+                    <span className="font-medium text-slate-900">{hw?.model || 'Unavailable'}</span>
+                    <span className="text-slate-500">Serial Number:</span>
+                    <span className="font-mono text-slate-900 flex items-center gap-1">
+                      <span>{hw?.serialNumber || 'Unavailable'}</span>
+                      {hw?.serialNumber && (
+                        <button onClick={() => handleCopyToClipboard(hw.serialNumber!, 'Serial Number')}>
+                          <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+                        </button>
+                      )}
+                    </span>
+                    <span className="text-slate-500">Processor:</span>
+                    <span className="font-medium text-slate-800">{hw?.processorName || 'Unavailable'}</span>
+                    <span className="text-slate-500">CPU Cores / Threads:</span>
+                    <span className="font-mono text-slate-800">{hw?.cores ? `${hw.cores} cores / ${hw.logicalProcessors || hw.cores} threads` : 'Unavailable'}</span>
+                    <span className="text-slate-500">Total RAM Memory:</span>
+                    <span className="font-semibold text-slate-900">{hw?.totalRamMb ? `${Math.round(hw.totalRamMb / 1024)} GB` : 'Unavailable'}</span>
+                    <span className="text-slate-500">System Uptime:</span>
+                    <span className="font-mono text-emerald-700 font-semibold">{endpoint.systemUptime || 'Unavailable'}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -405,7 +461,7 @@ export const EndpointDetailPage: React.FC = () => {
                       className="text-[#2F3EA0] focus:ring-[#2F3EA0]"
                     />
                     <div>
-                      <div className="font-semibold text-slate-900">Inherit Default Credential</div>
+                      <div className="font-semibold text-slate-900">Inherit Default Credential Profile</div>
                       <div className="text-[11px] text-slate-500">
                         Inherits default login credential configured under Settings → Credential Profiles.
                       </div>
@@ -467,8 +523,8 @@ export const EndpointDetailPage: React.FC = () => {
 
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs flex justify-between items-center mt-3">
                   <div>
-                    <span className="text-slate-500">Active Login Username:</span>{' '}
-                    <span className="font-mono font-semibold text-slate-900">{endpoint.authUser}</span>
+                    <span className="text-slate-500">Remote Authentication User:</span>{' '}
+                    <span className="font-mono font-semibold text-slate-900">{endpoint.authUser || 'No credential configured'}</span>
                   </div>
                   <span className="text-[11px] text-emerald-700 font-medium">✓ Passwords Encrypted & Protected</span>
                 </div>
@@ -477,7 +533,7 @@ export const EndpointDetailPage: React.FC = () => {
                   <button
                     onClick={handleSaveCredentialConfig}
                     disabled={isSavingCreds}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-50 cursor-pointer"
                   >
                     <span>{isSavingCreds ? 'Saving...' : 'Save Login Configuration'}</span>
                   </button>
@@ -491,16 +547,23 @@ export const EndpointDetailPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 border border-slate-200 rounded">
                 <div>
-                  <h3 className="font-bold text-slate-900 text-xs">Real Local Accounts on {endpoint.hostname}</h3>
-                  <p className="text-[11px] text-slate-500">Live local users enumerated directly from Windows Security Authority</p>
+                  <h3 className="font-bold text-slate-900 text-xs">Local Accounts on {endpoint.hostname}</h3>
+                  <p className="text-[11px] text-slate-500">Local user accounts queried directly from remote Windows target</p>
                 </div>
                 <button
                   onClick={() => setIsCreateUserOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs cursor-pointer"
                 >
                   <UserPlus className="h-4 w-4" /> Create Local User
                 </button>
               </div>
+
+              {sectionStatuses['LocalAccounts']?.isAvailable === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Unable to query local accounts from remote host. Reason: {sectionStatuses['LocalAccounts'].errorMessage}</span>
+                </div>
+              )}
 
               <div className="overflow-x-auto border border-slate-200 rounded bg-white">
                 <table className="w-full text-left text-xs border-collapse">
@@ -515,48 +578,56 @@ export const EndpointDetailPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
-                    {localAccounts.map((acc: LocalAccountDto, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-2.5 font-bold font-mono text-slate-900 flex items-center gap-1.5">
-                          <span>{acc.username}</span>
-                          <button onClick={() => handleCopyToClipboard(acc.username, 'Username')} title="Copy Username">
-                            <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
-                          </button>
-                        </td>
-                        <td className="p-2.5 text-slate-800">{acc.fullName || '—'}</td>
-                        <td className="p-2.5 text-slate-600">{acc.description || '—'}</td>
-                        <td className="p-2.5">
-                          {acc.isAdmin ? (
-                            <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-900 rounded">
-                              Administrator
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-700 rounded">
-                              Standard User
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2.5">
-                          {acc.isEnabled ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
-                              ● Enabled
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-slate-400 font-medium text-[11px]">
-                              ○ Disabled
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2.5 text-right space-x-1">
-                          <button
-                            onClick={() => setResetUserModal({ isOpen: true, username: acc.username })}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300"
-                          >
-                            <Lock className="h-3 w-3" /> Reset Password
-                          </button>
+                    {localAccounts.length > 0 ? (
+                      localAccounts.map((acc: LocalAccountDto, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold font-mono text-slate-900 flex items-center gap-1.5">
+                            <span>{acc.username}</span>
+                            <button onClick={() => handleCopyToClipboard(acc.username, 'Username')} title="Copy Username">
+                              <Copy className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+                            </button>
+                          </td>
+                          <td className="p-2.5 text-slate-800">{acc.fullName || '—'}</td>
+                          <td className="p-2.5 text-slate-600">{acc.description || '—'}</td>
+                          <td className="p-2.5">
+                            {acc.isAdmin ? (
+                              <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-900 rounded">
+                                Administrator
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-700 rounded">
+                                Standard User
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5">
+                            {acc.isEnabled ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold text-[11px]">
+                                ● Enabled
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-slate-400 font-medium text-[11px]">
+                                ○ Disabled
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-right space-x-1">
+                            <button
+                              onClick={() => setResetUserModal({ isOpen: true, username: acc.username })}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded border border-slate-300 cursor-pointer"
+                            >
+                              <Lock className="h-3 w-3" /> Reset Password
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-slate-500">
+                          No local accounts retrieved yet. Click "Check Connection & Authenticate" above to perform a live remote WMI query.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -567,9 +638,16 @@ export const EndpointDetailPage: React.FC = () => {
           {activeTab === 'security' && (
             <div className="space-y-4">
               <div className="bg-slate-50 p-3 border border-slate-200 rounded">
-                <h3 className="font-bold text-slate-900 text-xs">Security Software & Protection Status</h3>
-                <p className="text-[11px] text-slate-500">Live security products retrieved from Windows SecurityCenter2 WMI namespace</p>
+                <h3 className="font-bold text-slate-900 text-xs">Security Software & Defender Status</h3>
+                <p className="text-[11px] text-slate-500">Live security products queried directly from remote SecurityCenter2 WMI provider</p>
               </div>
+
+              {sectionStatuses['SecuritySoftware']?.isAvailable === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Unable to query Security Center. Reason: {sectionStatuses['SecuritySoftware'].errorMessage}</span>
+                </div>
+              )}
 
               <div className="overflow-x-auto border border-slate-200 rounded bg-white">
                 <table className="w-full text-left text-xs border-collapse">
@@ -583,22 +661,30 @@ export const EndpointDetailPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
-                    {securitySoftware.map((sec: SecuritySoftwareDto, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-2.5 font-bold text-slate-900 flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-[#2F3EA0]" />
-                          <span>{sec.productName}</span>
-                        </td>
-                        <td className="p-2.5 text-slate-700">{sec.vendor || 'Microsoft Corporation'}</td>
-                        <td className="p-2.5 font-mono text-slate-700">{sec.version || '10.0.22621.1'}</td>
-                        <td className="p-2.5 font-semibold text-emerald-700">{sec.status}</td>
-                        <td className="p-2.5">
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
-                            Running & Enabled
-                          </span>
+                    {securitySoftware.length > 0 ? (
+                      securitySoftware.map((sec: SecuritySoftwareDto, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold text-slate-900 flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-[#2F3EA0]" />
+                            <span>{sec.productName}</span>
+                          </td>
+                          <td className="p-2.5 text-slate-700">{sec.vendor || 'Microsoft Corporation'}</td>
+                          <td className="p-2.5 font-mono text-slate-700">{sec.version || 'Live'}</td>
+                          <td className="p-2.5 font-semibold text-emerald-700">{sec.status}</td>
+                          <td className="p-2.5">
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
+                              Running & Enabled
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-slate-500">
+                          No security software items retrieved yet. Click "Check Connection & Authenticate" above to query remote security state.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -617,100 +703,103 @@ export const EndpointDetailPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+              {!isOnline && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 text-xs flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Endpoint is currently Offline. Restart, Shutdown, and Log Off are disabled until host returns online.</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
                 <button
                   onClick={() => setPowerActionModal({ isOpen: true, action: 'Restart' })}
-                  className="flex flex-col items-center justify-center p-4 border border-slate-300 rounded hover:border-[#2F3EA0] hover:bg-blue-50/40 transition-colors text-center"
+                  disabled={!isOnline}
+                  className="flex flex-col items-center justify-center p-4 border border-slate-300 rounded hover:border-[#2F3EA0] hover:bg-blue-50/40 transition-colors text-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <RotateCcw className="h-6 w-6 text-[#2F3EA0] mb-2" />
                   <span className="font-bold text-slate-900 text-xs">Restart System</span>
-                  <span className="text-[10px] text-slate-500 mt-1">Reboots Windows OS immediately</span>
+                  <span className="text-[10px] text-slate-500 mt-1">Reboots Windows OS</span>
                 </button>
 
                 <button
                   onClick={() => setPowerActionModal({ isOpen: true, action: 'Shutdown' })}
-                  className="flex flex-col items-center justify-center p-4 border border-rose-200 rounded hover:border-rose-400 hover:bg-rose-50/40 transition-colors text-center"
+                  disabled={!isOnline}
+                  className="flex flex-col items-center justify-center p-4 border border-rose-200 rounded hover:border-rose-400 hover:bg-rose-50/40 transition-colors text-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Power className="h-6 w-6 text-rose-600 mb-2" />
                   <span className="font-bold text-rose-900 text-xs">Shutdown System</span>
-                  <span className="text-[10px] text-slate-500 mt-1">Powers off computer completely</span>
+                  <span className="text-[10px] text-slate-500 mt-1">Powers off host</span>
                 </button>
 
                 <button
                   onClick={() => setPowerActionModal({ isOpen: true, action: 'LogOff' })}
-                  className="flex flex-col items-center justify-center p-4 border border-slate-300 rounded hover:border-slate-500 hover:bg-slate-100/60 transition-colors text-center"
+                  disabled={!isOnline}
+                  className="flex flex-col items-center justify-center p-4 border border-slate-300 rounded hover:border-slate-500 hover:bg-slate-100/60 transition-colors text-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <UserCheck className="h-6 w-6 text-slate-700 mb-2" />
                   <span className="font-bold text-slate-900 text-xs">Log Off Users</span>
-                  <span className="text-[10px] text-slate-500 mt-1">Terminates active user sessions</span>
+                  <span className="text-[10px] text-slate-500 mt-1">Ends user sessions</span>
                 </button>
-              </div>
-            </div>
-          )}
 
-          {/* Hardware Specs Tab */}
-          {activeTab === 'hardware' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">System Manufacturer</div>
-                <div className="font-semibold text-slate-900 text-xs">{hw?.manufacturer || 'Dell Inc.'}</div>
-              </div>
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">Model</div>
-                <div className="font-semibold text-slate-900 text-xs">{hw?.model || 'OptiPlex 7090'}</div>
-              </div>
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">Serial Number</div>
-                <div className="font-mono text-slate-900 text-xs">{hw?.serialNumber || 'CN-09X281-72901'}</div>
-              </div>
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">Processor</div>
-                <div className="font-semibold text-slate-900 text-xs">{hw?.processorName || 'Intel(R) Core(TM) i7-11700 CPU @ 2.50GHz'}</div>
-              </div>
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">RAM Memory</div>
-                <div className="font-semibold text-slate-900 text-xs">{hw?.totalRamMb ? Math.round(hw.totalRamMb / 1024) : 16} GB</div>
-              </div>
-              <div className="p-3 border rounded bg-slate-50/40">
-                <div className="text-slate-500 text-[11px]">GPU Graphics</div>
-                <div className="font-semibold text-slate-900 text-xs">{hw?.gpuName || 'Intel(R) UHD Graphics 750'}</div>
+                <button
+                  onClick={() => setPowerActionModal({ isOpen: true, action: 'PowerOn' })}
+                  disabled={!hasMacAddress}
+                  className="flex flex-col items-center justify-center p-4 border border-amber-300 rounded hover:border-amber-500 hover:bg-amber-50 transition-colors text-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Zap className="h-6 w-6 text-amber-600 mb-2" />
+                  <span className="font-bold text-amber-900 text-xs">Power On (WOL)</span>
+                  <span className="text-[10px] text-slate-500 mt-1">Sends Magic Packet</span>
+                </button>
               </div>
             </div>
           )}
 
           {/* Network Interfaces Tab */}
           {activeTab === 'network' && (
-            <div className="overflow-x-auto border border-slate-200 rounded">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700">
-                  <tr>
-                    <th className="p-2">Adapter</th>
-                    <th className="p-2">IPv4 Address</th>
-                    <th className="p-2">MAC Address</th>
-                    <th className="p-2">Link Speed</th>
-                    <th className="p-2">State</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {nics.length > 0 ? (
-                    nics.map((nic, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50">
-                        <td className="p-2 font-semibold text-slate-900">{nic.adapterName || 'Ethernet 1'}</td>
-                        <td className="p-2 font-mono text-slate-800">{nic.ipv4Address || endpoint.ipAddress || '192.168.100.41'}</td>
-                        <td className="p-2 font-mono text-slate-600">{nic.macAddress || endpoint.macAddress || '00:15:5D:01:22:45'}</td>
-                        <td className="p-2 font-mono text-slate-700">{nic.linkSpeedMbps ? `${nic.linkSpeedMbps} Mbps` : '1000 Mbps'}</td>
-                        <td className="p-2">
-                          <StatusBadge status={nic.connectionState || 'Connected'} size="sm" />
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
+            <div className="space-y-4">
+              {sectionStatuses['NetworkInterfaces']?.isAvailable === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Unable to query network interfaces. Reason: {sectionStatuses['NetworkInterfaces'].errorMessage}</span>
+                </div>
+              )}
+
+              <div className="overflow-x-auto border border-slate-200 rounded">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700">
                     <tr>
-                      <td colSpan={5} className="p-4 text-center text-slate-500">No network interfaces recorded</td>
+                      <th className="p-2">Adapter Name</th>
+                      <th className="p-2">IPv4 Address</th>
+                      <th className="p-2">IPv6 Address</th>
+                      <th className="p-2">MAC Address</th>
+                      <th className="p-2">Link Speed</th>
+                      <th className="p-2">Gateway / DNS</th>
+                      <th className="p-2">State</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {nics.length > 0 ? (
+                      nics.map((nic, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 font-semibold text-slate-900">{nic.adapterName || 'Ethernet Adapter'}</td>
+                          <td className="p-2 font-mono text-slate-800">{nic.ipv4Address || '—'}</td>
+                          <td className="p-2 font-mono text-slate-500">{nic.ipv6Address || '—'}</td>
+                          <td className="p-2 font-mono text-slate-600">{nic.macAddress || '—'}</td>
+                          <td className="p-2 font-mono text-slate-700">{nic.linkSpeedMbps ? `${nic.linkSpeedMbps} Mbps` : '1000 Mbps'}</td>
+                          <td className="p-2 text-slate-600">{nic.gateway || nic.dnsServers || '—'}</td>
+                          <td className="p-2">
+                            <StatusBadge status={nic.connectionState || 'Connected'} size="sm" />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="p-6 text-center text-slate-500">No network interfaces recorded yet. Click "Check Connection & Authenticate" above to query remote interfaces.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -727,6 +816,13 @@ export const EndpointDetailPage: React.FC = () => {
                   className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                 />
               </div>
+
+              {sectionStatuses['InstalledSoftware']?.isAvailable === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Unable to query installed software inventory. Reason: {sectionStatuses['InstalledSoftware'].errorMessage}</span>
+                </div>
+              )}
 
               <div className="overflow-x-auto border border-slate-200 rounded max-h-72">
                 <table className="w-full text-left text-xs border-collapse">
@@ -750,7 +846,7 @@ export const EndpointDetailPage: React.FC = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-4 text-center text-slate-500">No software items match query</td>
+                        <td colSpan={4} className="p-6 text-center text-slate-500">No software items match query or recorded yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -759,40 +855,91 @@ export const EndpointDetailPage: React.FC = () => {
             </div>
           )}
 
-          {/* Drives Tab */}
+          {/* Drives & Storage Tab */}
           {activeTab === 'drives' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(drives.length > 0
-                ? drives
-                : [{ driveLetter: 'C:', capacityGb: 500, freeSpaceGb: 320, usedSpaceGb: 180, fileSystem: 'NTFS', diskType: 'SSD' }]
-              ).map((d, idx) => {
-                const total = d.capacityGb || 500;
-                const free = d.freeSpaceGb || 320;
-                const used = d.usedSpaceGb || total - free;
-                const percent = Math.round((used / total) * 100);
+            <div className="space-y-4">
+              {sectionStatuses['Storage']?.isAvailable === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>Unable to query physical disks & partitions. Reason: {sectionStatuses['Storage'].errorMessage}</span>
+                </div>
+              )}
 
-                return (
-                  <div key={idx} className="p-3 border border-slate-200 rounded bg-slate-50/50 space-y-2">
-                    <div className="flex items-center justify-between font-semibold text-slate-900 text-xs">
-                      <span>Drive {d.driveLetter || 'C:'} ({d.fileSystem || 'NTFS'} - {d.diskType || 'SSD'})</span>
-                      <span>{percent}% Used</span>
+              {physicalDisks.length > 0 ? (
+                <div className="space-y-4">
+                  {physicalDisks.map((disk) => (
+                    <div key={disk.diskIndex} className="p-4 border border-slate-200 rounded bg-slate-50/60 space-y-3">
+                      <div className="flex items-center justify-between font-bold text-slate-900 text-xs border-b border-slate-200 pb-2">
+                        <span className="flex items-center gap-2">
+                          <HardDrive className="h-4 w-4 text-[#2F3EA0]" />
+                          <span>Physical Disk {disk.diskIndex}: {disk.model} ({disk.capacityGb} GB - {disk.mediaType})</span>
+                        </span>
+                        <span className="font-mono text-slate-500 text-[11px]">S/N: {disk.serialNumber || 'N/A'}</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-2">
+                        {disk.partitions.map((d, pIdx) => {
+                          const total = d.capacityGb || 100;
+                          const free = d.freeSpaceGb || 0;
+                          const used = d.usedSpaceGb || (total - free);
+                          const percent = Math.round((used / Math.max(total, 1)) * 100);
+
+                          return (
+                            <div key={pIdx} className="p-3 border border-slate-200 rounded bg-white space-y-2">
+                              <div className="flex items-center justify-between font-semibold text-slate-900 text-xs">
+                                <span>Volume {d.driveLetter || 'Partition'} ({d.fileSystem || 'NTFS'})</span>
+                                <span>{percent}% Used</span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                <div className={`h-full ${percent > 85 ? 'bg-rose-500' : 'bg-[#2F3EA0]'}`} style={{ width: `${Math.min(percent, 100)}%` }} />
+                              </div>
+                              <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+                                <span>Free: {free} GB</span>
+                                <span>Used: {used} GB / {total} GB</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                      <div className={`h-full ${percent > 85 ? 'bg-rose-500' : 'bg-[#2F3EA0]'}`} style={{ width: `${percent}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                      <span>Free: {free} GB</span>
-                      <span>Total: {total} GB</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              ) : drives.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {drives.map((d, idx) => {
+                    const total = d.capacityGb || 100;
+                    const free = d.freeSpaceGb || 0;
+                    const used = d.usedSpaceGb || (total - free);
+                    const percent = Math.round((used / Math.max(total, 1)) * 100);
+
+                    return (
+                      <div key={idx} className="p-3 border border-slate-200 rounded bg-slate-50/50 space-y-2">
+                        <div className="flex items-center justify-between font-semibold text-slate-900 text-xs">
+                          <span>Drive {d.driveLetter || 'Local Disk'} ({d.fileSystem || 'NTFS'})</span>
+                          <span>{percent}% Used</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                          <div className={`h-full ${percent > 85 ? 'bg-rose-500' : 'bg-[#2F3EA0]'}`} style={{ width: `${Math.min(percent, 100)}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+                          <span>Free: {free} GB</span>
+                          <span>Total: {total} GB</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-slate-500 border border-slate-200 rounded">
+                  No disk or partition configuration recorded yet. Click "Check Connection & Authenticate" above to query remote storage layout.
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Power Action Light Confirm Modal */}
+      {/* Power Action Confirm Modal */}
       <ConfirmModal
         isOpen={powerActionModal.isOpen}
         onClose={() => setPowerActionModal({ isOpen: false, action: null })}
@@ -848,25 +995,23 @@ export const EndpointDetailPage: React.FC = () => {
               id="isAdminCheck"
               checked={newIsAdmin}
               onChange={(e) => setNewIsAdmin(e.target.checked)}
-              className="text-[#2F3EA0] rounded focus:ring-[#2F3EA0]"
+              className="text-[#2F3EA0] focus:ring-[#2F3EA0] rounded"
             />
-            <label htmlFor="isAdminCheck" className="text-xs font-medium text-slate-800">
-              Add to Administrators Group
-            </label>
+            <label htmlFor="isAdminCheck" className="text-xs text-slate-700 font-medium">Add account to Administrators group</label>
           </div>
 
-          <div className="flex justify-end items-center gap-2 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => setIsCreateUserOpen(false)}
-              className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-50"
+              className="px-3 py-1.5 text-xs border border-slate-300 rounded hover:bg-slate-50 text-slate-700"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isCreatingUser}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-50"
+              className="px-3 py-1.5 text-xs bg-[#2F3EA0] hover:bg-[#233080] text-white font-semibold rounded disabled:opacity-50"
             >
               {isCreatingUser ? 'Creating...' : 'Create Account'}
             </button>
@@ -875,12 +1020,18 @@ export const EndpointDetailPage: React.FC = () => {
       </Modal>
 
       {/* Modal to Reset User Password */}
-      <Modal
-        isOpen={resetUserModal.isOpen}
-        onClose={() => setResetUserModal({ isOpen: false, username: null })}
-        title={`Reset Password for '${resetUserModal.username}'`}
-      >
+      <Modal isOpen={resetUserModal.isOpen} onClose={() => setResetUserModal({ isOpen: false, username: null })} title={`Reset Password for ${resetUserModal.username}`}>
         <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-slate-700">Target Username</label>
+            <input
+              type="text"
+              readOnly
+              value={resetUserModal.username || ''}
+              className="w-full px-3 py-1.5 text-xs border border-slate-200 bg-slate-100 rounded font-mono text-slate-700"
+            />
+          </div>
+
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-slate-700">New Password *</label>
             <input
@@ -888,25 +1039,25 @@ export const EndpointDetailPage: React.FC = () => {
               required
               value={resetPasswordInput}
               onChange={(e) => setResetPasswordInput(e.target.value)}
-              placeholder="Enter new password for local user"
+              placeholder="Enter new password"
               className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
 
-          <div className="flex justify-end items-center gap-2 pt-3 border-t border-slate-200">
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={() => setResetUserModal({ isOpen: false, username: null })}
-              className="px-3 py-1.5 text-xs font-medium border border-slate-300 rounded bg-white text-slate-700 hover:bg-slate-50"
+              className="px-3 py-1.5 text-xs border border-slate-300 rounded hover:bg-slate-50 text-slate-700"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isResettingPassword}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-50"
+              disabled={isResettingPassword || !resetPasswordInput}
+              className="px-3 py-1.5 text-xs bg-[#2F3EA0] hover:bg-[#233080] text-white font-semibold rounded disabled:opacity-50"
             >
-              {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+              {isResettingPassword ? 'Resetting...' : 'Confirm Reset Password'}
             </button>
           </div>
         </form>

@@ -18,6 +18,11 @@ public class EndpointDto
     public string? CredentialProfileName { get; set; }
     public string DeviceType { get; set; } = "Windows";
 
+    public string? DomainWorkgroup { get; set; }
+    public string? CurrentInteractiveUser { get; set; }
+    public string? SystemUptime { get; set; }
+    public DateTime? LastSuccessfulRefresh { get; set; }
+
     public string? AgentStatus { get; set; }
     public string? AgentVersion { get; set; }
     public string? WindowsEdition { get; set; }
@@ -41,6 +46,26 @@ public sealed class EndpointDetailDto : EndpointDto
     public List<StorageDriveDto> Drives { get; set; } = [];
     public List<LocalAccountDto> LocalAccounts { get; set; } = [];
     public List<SecuritySoftwareDto> SecuritySoftware { get; set; } = [];
+    public List<PhysicalDiskDto> PhysicalDisks { get; set; } = [];
+    public Dictionary<string, SectionStatusDto> SectionStatuses { get; set; } = new();
+}
+
+public sealed class SectionStatusDto
+{
+    public bool IsAvailable { get; set; } = true;
+    public string? ErrorMessage { get; set; }
+}
+
+public sealed class PhysicalDiskDto
+{
+    public int DiskIndex { get; set; }
+    public string? Model { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? InterfaceType { get; set; }
+    public string? MediaType { get; set; }
+    public double CapacityGb { get; set; }
+    public string? HealthStatus { get; set; } = "Healthy";
+    public List<StorageDriveDto> Partitions { get; set; } = [];
 }
 
 public sealed class LocalAccountDto
@@ -149,6 +174,7 @@ public sealed class StorageDriveDto
 
 public sealed class CreateEndpointRequest
 {
+    public string? Target { get; set; }
     public required string Hostname { get; set; }
     public string? Fqdn { get; set; }
     public string? IpAddress { get; set; }
@@ -156,6 +182,45 @@ public sealed class CreateEndpointRequest
     public string? Description { get; set; }
     public string? Location { get; set; }
     public Guid? GroupId { get; set; }
+}
+
+public sealed class BulkActionRequest
+{
+    public required string Action { get; set; }
+    public List<Guid> EndpointIds { get; set; } = [];
+}
+
+public sealed class CreateLocalAdminRequest
+{
+    public List<Guid> EndpointIds { get; set; } = [];
+}
+
+public sealed class ResetEndpointUserPasswordRequest
+{
+    public required string TargetUsername { get; set; }
+    public required string NewPassword { get; set; }
+}
+
+public sealed class UpdateEndpointUserGroupsRequest
+{
+    public required string TargetUsername { get; set; }
+    public List<string> Groups { get; set; } = [];
+}
+
+public sealed class InstallSoftwareRequest
+{
+    public required string PackageName { get; set; }
+    public string? Version { get; set; }
+}
+
+public sealed class UninstallSoftwareRequest
+{
+    public required string SoftwareName { get; set; }
+}
+
+public sealed class PowerControlRequest
+{
+    public required string Action { get; set; }
 }
 
 public sealed class ImportEndpointsRequest
