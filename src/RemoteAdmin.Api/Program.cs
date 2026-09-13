@@ -54,6 +54,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ClockSkew = TimeSpan.FromMinutes(1),
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/discovery"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -112,8 +125,11 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// SignalR
+// SignalR & Discovery Engine Services
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IOuiVendorLookupService, RemoteAdmin.Infrastructure.Services.OuiVendorLookupService>();
+builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IDiscoveryScanEngine, RemoteAdmin.Infrastructure.Services.DiscoveryScanEngine>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IDiscoveryHubNotifier, RemoteAdmin.Api.Hubs.DiscoveryHubNotifier>();
 
 // Windows Management Service
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IWindowsManagementService, RemoteAdmin.Infrastructure.Services.WindowsManagementService>();
@@ -155,6 +171,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapControllers();
+app.MapHub<RemoteAdmin.Api.Hubs.DiscoveryHub>("/hubs/discovery");
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapGet("/api", () => Results.Redirect("/swagger"));

@@ -12,7 +12,14 @@ import { EndpointDetailPage } from '../pages/endpoints/EndpointDetailPage';
 import { UsersPage } from '../pages/users/UsersPage';
 import { DeploymentsPage } from '../pages/deployments/DeploymentsPage';
 import { DeploymentDetailPage } from '../pages/deployments/DeploymentDetailPage';
-import { DiscoveryPage } from '../pages/discovery/DiscoveryPage';
+
+// Discovery Sub-Pages
+import { DiscoveryConsolePage } from '../pages/discovery/DiscoveryConsolePage';
+import { ScanHistoryPage } from '../pages/discovery/ScanHistoryPage';
+import { ScanDetailPage } from '../pages/discovery/ScanDetailPage';
+import { ScanSchedulesPage } from '../pages/discovery/ScanSchedulesPage';
+import { DiscoverySettingsPage } from '../pages/discovery/DiscoverySettingsPage';
+
 import { AuditLogPage } from '../pages/audit/AuditLogPage';
 import { SettingsPage } from '../pages/settings/SettingsPage';
 
@@ -53,7 +60,14 @@ export const AppRoutes: React.FC = () => {
         />
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/:id" element={<DeploymentDetailPage />} />
-        <Route path="/discovery" element={<DiscoveryPage />} />
+
+        {/* Discovery Routes */}
+        <Route path="/discovery" element={<DiscoveryConsolePage />} />
+        <Route path="/discovery/scans" element={<ScanHistoryPage />} />
+        <Route path="/discovery/scans/:id" element={<ScanDetailPage />} />
+        <Route path="/discovery/schedules" element={<ScanSchedulesPage />} />
+        <Route path="/discovery/settings" element={<DiscoverySettingsPage />} />
+
         <Route path="/audit" element={<AuditLogPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
