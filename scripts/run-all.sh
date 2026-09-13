@@ -23,7 +23,16 @@ echo "=== 3. Stopping background API and systemd services if running ==="
 if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl stop remote-admin-api.service 2>/dev/null || true
 fi
-pkill -f "RemoteAdmin.Api" 2>/dev/null || true
+pkill -9 -f "RemoteAdmin.Api" 2>/dev/null || true
+
+if command -v fuser >/dev/null 2>&1; then
+    fuser -k 5000/tcp 2>/dev/null || true
+    fuser -k 3000/tcp 2>/dev/null || true
+elif command -v lsof >/dev/null 2>&1; then
+    lsof -ti :5000 | xargs kill -9 2>/dev/null || true
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+fi
+sleep 1
 
 echo "=== 4. Ensuring PostgreSQL Container is Running ==="
 docker compose up -d postgres
