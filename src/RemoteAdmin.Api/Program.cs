@@ -35,8 +35,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // Authentication
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException("Jwt:Key is not configured");
+var jwtKeyRaw = builder.Configuration["Jwt:Key"];
+var jwtKey = !string.IsNullOrWhiteSpace(jwtKeyRaw) ? jwtKeyRaw : "CHANGE-THIS-TO-A-LONG-RANDOM-SECRET-KEY-AT-LEAST-64-CHARACTERS-LONG-FOR-PRODUCTION";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RemoteAdminEnterprises";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RemoteAdminEnterprises";
 

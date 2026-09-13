@@ -367,7 +367,8 @@ public class AuthController : ControllerBase
 
     private string GenerateToken(Domain.Entities.User user)
     {
-        var key = _config["Jwt:Key"]!;
+        var keyRaw = _config["Jwt:Key"];
+        var key = !string.IsNullOrWhiteSpace(keyRaw) ? keyRaw : "CHANGE-THIS-TO-A-LONG-RANDOM-SECRET-KEY-AT-LEAST-64-CHARACTERS-LONG-FOR-PRODUCTION";
         var issuer = _config["Jwt:Issuer"] ?? "RemoteAdminEnterprises";
         var audience = _config["Jwt:Audience"] ?? "RemoteAdminEnterprises";
         var expiryMinutes = _config.GetValue("Jwt:ExpiryMinutes", 480);

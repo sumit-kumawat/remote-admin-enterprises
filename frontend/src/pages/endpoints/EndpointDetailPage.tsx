@@ -6,7 +6,6 @@ import { fetchCredentials, type CredentialProfileItem } from '../../api/credenti
 import type { LocalAccountDto, SecuritySoftwareDto } from '../../types/api';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
-import { ErrorState } from '../../components/common/ErrorState';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { Modal } from '../../components/common/Modal';
 import { DeviceIcon } from '../../components/common/DeviceIcon';
@@ -92,10 +91,35 @@ export const EndpointDetailPage: React.FC = () => {
   }, [response]);
 
   if (isLoading) return <LoadingSkeleton rows={8} />;
-  if (isError || !response?.data) return <ErrorState onRetry={() => refetch()} />;
+  if (isError || !response?.data) {
+    return (
+      <div className="bg-white p-6 border border-slate-200 rounded-md shadow-xs space-y-4 max-w-xl mx-auto my-8 text-center font-sans">
+        <div className="inline-flex p-3 bg-amber-100 text-amber-700 rounded-full">
+          <AlertTriangle className="h-6 w-6" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900">Endpoint Not Found</h2>
+        <p className="text-xs text-slate-600">
+          The requested endpoint identifier <span className="font-mono font-semibold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-slate-900">{id}</span> could not be found in inventory. It may have been removed or the database was re-initialized.
+        </p>
+        <div className="pt-2 flex justify-center gap-3">
+          <button
+            onClick={() => navigate('/endpoints')}
+            className="px-4 py-2 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs cursor-pointer"
+          >
+            Back to Endpoint Inventory
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded cursor-pointer"
+          >
+            Retry Request
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const endpoint = response?.data;
-  if (!endpoint) return <ErrorState onRetry={() => refetch()} />;
+  const endpoint = response.data;
 
   const hw = endpoint.hardware;
   const nics = endpoint.networkInterfaces || [];

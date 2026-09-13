@@ -132,22 +132,13 @@ public class EndpointsController : ControllerBase
         });
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetById(string id)
     {
-        var endpoint = await _db.Endpoints
-            .Include(e => e.AgentIdentity)
-            .Include(e => e.Group)
-            .Include(e => e.CredentialProfile)
-            .Include(e => e.HardwareInventory)
-                .ThenInclude(h => h!.Drives)
-            .Include(e => e.NetworkInterfaces)
-            .Include(e => e.SoftwareInventory)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
 
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         Dictionary<string, SectionStatusDto> sectionStatuses = new();
         if (!string.IsNullOrEmpty(endpoint.SectionStatusesJson))
@@ -552,18 +543,13 @@ public class EndpointsController : ControllerBase
         return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
     }
 
-    [HttpPost("{id:guid}/check-connection")]
-    public async Task<IActionResult> CheckConnection(Guid id)
+    [HttpPost("{id}/check-connection")]
+    public async Task<IActionResult> CheckConnection(string id)
     {
-        var endpoint = await _db.Endpoints
-            .Include(e => e.CredentialProfile)
-            .Include(e => e.HardwareInventory)
-            .Include(e => e.NetworkInterfaces)
-            .Include(e => e.SoftwareInventory)
-            .FirstOrDefaultAsync(e => e.Id == id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
 
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         var credProfile = await ResolveCredentialProfileAsync(endpoint);
         var queryResult = await _wmiService.ExecuteLiveEndpointQueryAsync(endpoint, credProfile);
@@ -715,13 +701,13 @@ public class EndpointsController : ControllerBase
         }
     }
 
-    [HttpPost("{id:guid}/power")]
+    [HttpPost("{id}/power")]
     [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> PowerControl(Guid id, [FromBody] PowerControlRequest request)
+    public async Task<IActionResult> PowerControl(string id, [FromBody] PowerControlRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         var credProfile = await ResolveCredentialProfileAsync(endpoint);
         var result = await _wmiService.ExecutePowerActionAsync(endpoint, credProfile, request.Action);
@@ -746,13 +732,13 @@ public class EndpointsController : ControllerBase
             return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    [HttpPost("{id:guid}/credential")]
+    [HttpPost("{id}/credential")]
     [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> UpdateCredentialConfig(Guid id, [FromBody] UpdateEndpointCredentialRequest request)
+    public async Task<IActionResult> UpdateCredentialConfig(string id, [FromBody] UpdateEndpointCredentialRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         endpoint.AuthMode = request.AuthMode;
         endpoint.CredentialProfileId = request.CredentialProfileId;
@@ -796,13 +782,13 @@ public class EndpointsController : ControllerBase
         return Ok(new ApiResponse { Success = true, Message = $"Credential mode set to '{request.AuthMode}'" });
     }
 
-    [HttpPost("{id:guid}/local-accounts/create")]
+    [HttpPost("{id}/local-accounts/create")]
     [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> CreateLocalAccount(Guid id, [FromBody] CreateLocalAccountRequest request)
+    public async Task<IActionResult> CreateLocalAccount(string id, [FromBody] CreateLocalAccountRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new ApiResponse { Success = false, Message = "Username and password are required" });
@@ -826,13 +812,13 @@ public class EndpointsController : ControllerBase
         return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    [HttpPost("{id:guid}/users/reset-password")]
+    [HttpPost("{id}/users/reset-password")]
     [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> ResetUserPassword(Guid id, [FromBody] ResetEndpointUserPasswordRequest request)
+    public async Task<IActionResult> ResetUserPassword(string id, [FromBody] ResetEndpointUserPasswordRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         if (string.IsNullOrWhiteSpace(request.TargetUsername) || string.IsNullOrWhiteSpace(request.NewPassword))
             return BadRequest(new ApiResponse { Success = false, Message = "Target username and new password are required" });
@@ -855,13 +841,13 @@ public class EndpointsController : ControllerBase
         return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    [HttpPost("{id:guid}/software/install")]
+    [HttpPost("{id}/software/install")]
     [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> InstallSoftwareOnEndpoint(Guid id, [FromBody] InstallSoftwareRequest request)
+    public async Task<IActionResult> InstallSoftwareOnEndpoint(string id, [FromBody] InstallSoftwareRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         var credProfile = await ResolveCredentialProfileAsync(endpoint);
         var result = await _wmiService.InstallSoftwareAsync(endpoint, credProfile, request.PackageName, request.Version);
@@ -881,13 +867,13 @@ public class EndpointsController : ControllerBase
         return BadRequest(new ApiResponse { Success = false, Message = result.Message });
     }
 
-    [HttpPost("{id:guid}/software/uninstall")]
+    [HttpPost("{id}/software/uninstall")]
     [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> UninstallSoftwareFromEndpoint(Guid id, [FromBody] UninstallSoftwareRequest request)
+    public async Task<IActionResult> UninstallSoftwareFromEndpoint(string id, [FromBody] UninstallSoftwareRequest request)
     {
-        var endpoint = await _db.Endpoints.FindAsync(id);
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
         if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found in inventory." });
 
         var credProfile = await ResolveCredentialProfileAsync(endpoint);
         var result = await _wmiService.UninstallSoftwareAsync(endpoint, credProfile, request.SoftwareName);
@@ -905,6 +891,32 @@ public class EndpointsController : ControllerBase
 
         if (result.Success) return Ok(new ApiResponse { Success = true, Message = result.Message });
         return BadRequest(new ApiResponse { Success = false, Message = result.Message });
+    }
+
+    private async Task<Endpoint?> FindEndpointByIdOrNameAsync(string idOrName)
+    {
+        if (string.IsNullOrWhiteSpace(idOrName)) return null;
+
+        var clean = idOrName.Trim();
+        var query = _db.Endpoints
+            .Include(e => e.AgentIdentity)
+            .Include(e => e.Group)
+            .Include(e => e.CredentialProfile)
+            .Include(e => e.HardwareInventory)
+                .ThenInclude(h => h!.Drives)
+            .Include(e => e.NetworkInterfaces)
+            .Include(e => e.SoftwareInventory);
+
+        if (Guid.TryParse(clean, out var guid))
+        {
+            var ep = await query.FirstOrDefaultAsync(e => e.Id == guid);
+            if (ep != null) return ep;
+        }
+
+        var lower = clean.ToLower();
+        return await query.FirstOrDefaultAsync(e =>
+            e.Hostname.ToLower() == lower ||
+            (e.IpAddress != null && e.IpAddress == clean));
     }
 
     private async Task<CredentialProfile?> ResolveCredentialProfileAsync(Endpoint endpoint)

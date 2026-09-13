@@ -123,7 +123,7 @@ public class EndpointManagementTests
             ControllerContext = GetMockControllerContext()
         };
 
-        var actionResult = await controller.CheckConnection(endpoint.Id);
+        var actionResult = await controller.CheckConnection(endpoint.Id.ToString());
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
         var apiResp = Assert.IsType<ApiResponse<object>>(okResult.Value);
         Assert.True(apiResp.Success);
@@ -173,7 +173,7 @@ public class EndpointManagementTests
             ControllerContext = GetMockControllerContext("OperatorUser")
         };
 
-        var actionResult = await controller.PowerControl(endpoint.Id, new PowerControlRequest { Action = "Restart" });
+        var actionResult = await controller.PowerControl(endpoint.Id.ToString(), new PowerControlRequest { Action = "Restart" });
         var okResult = Assert.IsType<OkObjectResult>(actionResult);
         var apiResp = Assert.IsType<ApiResponse>(okResult.Value);
         Assert.True(apiResp.Success);
