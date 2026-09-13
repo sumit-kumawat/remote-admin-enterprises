@@ -41,7 +41,7 @@ export const Sidebar: React.FC = () => {
         {!isCollapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
             <img
-              src="/ra-logo.png"
+              src="/ra-logo.svg"
               alt="Remote Admin Logo"
               className="h-7 w-7 object-contain shrink-0"
             />
@@ -50,7 +50,7 @@ export const Sidebar: React.FC = () => {
         )}
         {isCollapsed && (
           <img
-            src="/ra-logo.png"
+            src="/ra-logo.svg"
             alt="Remote Admin Logo"
             className="h-7 w-7 object-contain mx-auto"
           />

@@ -53,7 +53,7 @@ export const LoginPage: React.FC = () => {
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-white border border-slate-200 shadow-xs p-1 mb-1">
             <img
-              src="/ra-logo.png"
+              src="/ra-logo.svg"
               alt="Remote Admin Logo"
               className="h-10 w-10 object-contain"
             />

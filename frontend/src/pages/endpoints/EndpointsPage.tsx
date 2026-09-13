@@ -9,6 +9,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { AddEndpointModal } from '../../components/modals/AddEndpointModal';
 import { ImportEndpointsModal } from '../../components/modals/ImportEndpointsModal';
 import { EndpointControlModal } from '../../components/modals/EndpointControlModal';
+import { WindowsIcon } from '../../components/common/WindowsIcon';
 import { Search, Plus, RefreshCw, Filter, ChevronRight, FileUp, CheckSquare, Square, SlidersHorizontal } from 'lucide-react';
 
 export const EndpointsPage: React.FC = () => {
@@ -226,8 +227,11 @@ export const EndpointsPage: React.FC = () => {
                         </button>
                       </td>
                       <td className="p-2.5 font-semibold text-slate-900">
-                        <div>{ep.hostname}</div>
-                        {ep.fqdn && <div className="text-[10px] text-slate-400 font-mono font-normal">{ep.fqdn}</div>}
+                        <div className="flex items-center gap-1.5">
+                          <WindowsIcon size={14} className="text-[#0078D4] shrink-0" />
+                          <span>{ep.hostname}</span>
+                        </div>
+                        {ep.fqdn && <div className="text-[10px] text-slate-400 font-mono font-normal pl-5">{ep.fqdn}</div>}
                       </td>
                       <td className="p-2.5 font-mono text-slate-700">{ep.ipAddress || '—'}</td>
                       <td className="p-2.5">

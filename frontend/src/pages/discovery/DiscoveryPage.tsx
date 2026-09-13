@@ -6,6 +6,7 @@ import {
 } from '../../hooks/useDiscovery';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
+import { WindowsIcon } from '../../components/common/WindowsIcon';
 import { Play, Plus, RefreshCw, Network, CheckSquare, Square } from 'lucide-react';
 
 export const DiscoveryPage: React.FC = () => {
@@ -76,14 +77,14 @@ export const DiscoveryPage: React.FC = () => {
                 value={cidrInput}
                 onChange={(e) => setCidrInput(e.target.value)}
                 placeholder="e.g. 192.168.1.0/24"
-                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded font-mono focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded font-mono focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
           </div>
 
           <div className="w-48">
             <label className="block text-[11px] font-medium text-slate-600 mb-1">Credential Profile</label>
-            <select className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]">
+            <select className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]">
               <option>Domain Admin Profile (corp.local)</option>
               <option>Local Admin Accounts</option>
               <option>WMI Anonymous Ping</option>
@@ -94,7 +95,7 @@ export const DiscoveryPage: React.FC = () => {
             <button
               type="submit"
               disabled={startScanMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
               {startScanMutation.isPending ? 'Starting Scan...' : 'Start Discovery Scan'}
@@ -114,7 +115,7 @@ export const DiscoveryPage: React.FC = () => {
               <button
                 onClick={handleImportSelected}
                 disabled={importDiscoveredMutation.isPending}
-                className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors disabled:opacity-50"
               >
                 <Plus className="h-3.5 w-3.5" /> Import {selectedDiscoveredIds.length} Selected into Managed Inventory
               </button>
@@ -127,7 +128,7 @@ export const DiscoveryPage: React.FC = () => {
                 <tr>
                   <th className="p-2.5 w-10 text-center">
                     <button onClick={toggleSelectAll} className="text-slate-500 hover:text-slate-900">
-                      {isAllSelected ? <CheckSquare className="h-4 w-4 text-[#0F6CBD]" /> : <Square className="h-4 w-4" />}
+                      {isAllSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4" />}
                     </button>
                   </th>
                   <th className="p-2.5">Hostname</th>
@@ -145,13 +146,23 @@ export const DiscoveryPage: React.FC = () => {
                     <tr key={item.id} className="hover:bg-slate-50">
                       <td className="p-2.5 text-center" onClick={() => toggleSelect(item.id)}>
                         <button className="text-slate-500 hover:text-slate-900">
-                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#0F6CBD]" /> : <Square className="h-4 w-4 text-slate-300" />}
+                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4 text-slate-300" />}
                         </button>
                       </td>
-                      <td className="p-2.5 font-semibold text-slate-900">{item.hostname}</td>
+                      <td className="p-2.5 font-semibold text-slate-900">
+                        <div className="flex items-center gap-1.5">
+                          {item.isWindows && <WindowsIcon size={14} className="text-[#0078D4] shrink-0" />}
+                          <span>{item.hostname}</span>
+                        </div>
+                      </td>
                       <td className="p-2.5 font-mono text-slate-700">{item.ipAddress}</td>
                       <td className="p-2.5 font-mono text-slate-500">{item.macAddress || '—'}</td>
-                      <td className="p-2.5 text-slate-800">{item.osName || 'Windows 11 Enterprise'}</td>
+                      <td className="p-2.5 font-medium text-slate-800">
+                        <span className="inline-flex items-center gap-1">
+                          {item.isWindows && <WindowsIcon size={12} className="text-[#0078D4]" />}
+                          {item.osName || 'Windows Server / Workstation'}
+                        </span>
+                      </td>
                       <td className="p-2.5 font-mono text-slate-600">{item.discoveryMethod}</td>
                       <td className="p-2.5">
                         <StatusBadge status={item.status === 'Managed' ? 'Online' : 'Pending'} size="sm" />
