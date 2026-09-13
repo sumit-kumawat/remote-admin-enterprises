@@ -4,6 +4,9 @@ set -e
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR"
 
+export DOTNET_SERVER_GC=0
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
+
 echo "=== 1. Pulling latest code ==="
 git checkout -- frontend/package-lock.json package-lock.json 2>/dev/null || true
 git reset --hard HEAD 2>/dev/null || true
@@ -26,9 +29,15 @@ echo "=== 4. Ensuring PostgreSQL Container is Running ==="
 docker compose up -d postgres
 sleep 2
 
-echo "=== 5. Rebuilding Backend API Binary ==="
+echo "=== 5. Preparing Backend API Binary ==="
 PUBLISH_DIR="$REPO_DIR/publish"
-dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR" -m:1
+
+if [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ] || [ "${FORCE_BUILD:-0}" -eq 1 ]; then
+    echo "Compiling backend API binary (Low-memory Workstation GC mode)..."
+    DOTNET_SERVER_GC=0 dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR" --no-restore /p:ServerGarbageCollection=false /p:UseSharedCompilation=false 2>/dev/null || DOTNET_SERVER_GC=0 dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR" /p:ServerGarbageCollection=false
+else
+    echo "Using pre-compiled backend API binary in $PUBLISH_DIR (0.0s instant boot. Set FORCE_BUILD=1 to force rebuild)."
+fi
 
 echo "=== 6. Verifying Published Artifacts ==="
 if [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ]; then
@@ -50,7 +59,7 @@ trap cleanup INT TERM EXIT
 
 echo "=== 7. Launching Backend API from Published Content Root ==="
 cd "$PUBLISH_DIR"
-ASPNETCORE_ENVIRONMENT=Development dotnet RemoteAdmin.Api.dll &
+DOTNET_SERVER_GC=0 ASPNETCORE_ENVIRONMENT=Development dotnet RemoteAdmin.Api.dll &
 API_PID=$!
 
 echo "Waiting for Backend API to become healthy on http://127.0.0.1:5000/health (PID: $API_PID) ..."
