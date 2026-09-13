@@ -22,12 +22,18 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 echo "=== 4. Ensuring PostgreSQL Container is Running ==="
-docker compose up -d
+docker compose up -d postgres
 sleep 2
 
-echo "=== 5. Fast Building Backend API ==="
+echo "=== 5. Preparing Backend API Binary ==="
 PUBLISH_DIR="$REPO_DIR/publish"
-dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR"
+
+if [ "${FORCE_BUILD:-0}" -eq 1 ] || [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ]; then
+    echo "Compiling backend API binary (single worker process)..."
+    dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR" -m:1 --no-restore 2>/dev/null || dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR" -m:1
+else
+    echo "Using existing pre-compiled backend binary in $PUBLISH_DIR (Set FORCE_BUILD=1 to force rebuild)"
+fi
 
 echo "=== 6. Verifying Published Artifacts ==="
 if [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ]; then
