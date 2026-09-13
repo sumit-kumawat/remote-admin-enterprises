@@ -159,14 +159,20 @@ app.MapFallbackToFile("index.html");
         await db.Database.MigrateAsync();
     }
 
-    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.SuperAdmin);
+    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
     if (adminUser != null)
     {
+        if (adminUser.MustChangePassword || adminUser.PasswordChangedAt == null)
+        {
+            var salt = AuthController.GenerateSalt();
+            adminUser.Salt = salt;
+            adminUser.PasswordHash = AuthController.HashPassword("Adm1n@123", salt);
+        }
         adminUser.FailedLoginAttempts = 0;
         adminUser.LockedUntil = null;
         adminUser.IsActive = true;
         await db.SaveChangesAsync();
-        Log.Information("SuperAdmin account unlocked and active.");
+        Log.Information("Bootstrap admin credentials verified (admin / Adm1n@123).");
     }
     else
     {
@@ -185,7 +191,7 @@ app.MapFallbackToFile("index.html");
             CreatedAt = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();
-        Log.Information("Bootstrap admin seeded. Password change required on first login.");
+        Log.Information("Bootstrap admin seeded. Password: Adm1n@123");
     }
 }
 

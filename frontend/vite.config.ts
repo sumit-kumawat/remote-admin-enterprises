@@ -8,8 +8,14 @@ export default defineConfig({
     port: 3000,
     allowedHosts: true,
     proxy: {
-      '/api': 'http://localhost:5000',
-      '/health': 'http://localhost:5000',
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
     },
   },
 });
