@@ -26,8 +26,8 @@ rm -f .env
 docker compose up -d
 sleep 2
 
-echo "=== 5. Fast Building Backend API ==="
-dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release
+echo "=== 5. Publishing Compiled Backend API (Optimized Parallel Build) ==="
+dotnet publish src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release -o ./publish -m /p:UseSharedCompilation=true /p:BuildInParallel=true
 
 echo "=== 6. Preparing Frontend Dependencies ==="
 cd frontend
@@ -36,7 +36,7 @@ if [ ! -d "node_modules" ]; then
     npm install --prefer-offline --no-audit
 fi
 
-echo "=== 7. Launching Backend & Frontend ==="
+echo "=== 7. Launching Backend & Frontend Services ==="
 cd "$REPO_DIR"
 
 cleanup() {
@@ -46,8 +46,8 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-echo "Starting Backend API on http://0.0.0.0:5000 ..."
-ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release --no-build &
+echo "Starting Backend API from ./publish/RemoteAdmin.Api.dll on http://0.0.0.0:5000 ..."
+ASPNETCORE_ENVIRONMENT=Development dotnet ./publish/RemoteAdmin.Api.dll &
 
 echo "Waiting for Backend API to start listening on http://127.0.0.1:5000 ..."
 for i in {1..30}; do
