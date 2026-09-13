@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useVirtualList } from '../../hooks/useVirtualList';
 import {
   useScan,
   useScanHosts,
@@ -115,7 +115,7 @@ export const ScanDetailPage: React.FC = () => {
 
   // Virtualizer setup for 10k+ rows
   const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
+  const rowVirtualizer = useVirtualList({
     count: filteredHosts.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 40,

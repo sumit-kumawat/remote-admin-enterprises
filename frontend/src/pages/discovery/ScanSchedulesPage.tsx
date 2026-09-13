@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import cronstrue from 'cronstrue';
+import { formatCronExpression } from '../../utils/cronFormatter';
 import { useSchedules, useCreateSchedule, useDeleteSchedule } from '../../hooks/useDiscovery';
 import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -26,11 +26,7 @@ export const ScanSchedulesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const getHumanCron = (expression: string) => {
-    try {
-      return cronstrue.toString(expression);
-    } catch {
-      return 'Invalid cron expression';
-    }
+    return formatCronExpression(expression);
   };
 
   const handleCreate = (e: React.FormEvent) => {
