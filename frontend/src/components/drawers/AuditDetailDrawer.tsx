@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, FileText, Calendar, User, Shield, Server, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import type { AuditLogItem } from '../../api/auditApi';
 
@@ -9,6 +9,16 @@ interface AuditDetailDrawerProps {
 }
 
 export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry, isOpen, onClose }) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !auditEntry) return null;
 
   let ResultIcon = CheckCircle2;
@@ -28,8 +38,14 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-2xs animate-in fade-in duration-150">
-      <div className="w-96 bg-white border-l border-slate-300 shadow-2xl flex flex-col h-full text-xs font-sans">
+    <div
+      className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-2xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      <div
+        className="w-96 bg-white border-l border-slate-300 shadow-2xl flex flex-col h-full text-xs font-sans"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center gap-2 font-semibold text-slate-900">

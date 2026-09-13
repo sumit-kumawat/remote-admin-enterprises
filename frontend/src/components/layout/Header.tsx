@@ -47,8 +47,19 @@ export const Header: React.FC = () => {
         setIsDropdownOpen(false);
       }
     };
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsUserMenuOpen(false);
+        setIsDropdownOpen(false);
+        setIsNotificationsOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
   }, []);
 
   // Debounced search API call

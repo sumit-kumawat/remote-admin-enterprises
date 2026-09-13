@@ -39,12 +39,16 @@ export const Modal: React.FC<ModalProps> = ({
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <div
         className={`w-full ${maxWidthClass} bg-white border border-slate-300 rounded-md shadow-xl flex flex-col max-h-[90vh] overflow-hidden text-xs text-slate-800`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
