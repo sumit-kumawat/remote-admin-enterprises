@@ -434,8 +434,8 @@ export const SettingsPage: React.FC = () => {
             <div className="p-4 border border-slate-200 rounded bg-slate-50/50 space-y-3 max-w-lg">
               <div className="flex items-center gap-3 border-b pb-3">
                 <img
-                  src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
-                  alt="Windows Server Logo"
+                  src="/ra-logo.svg"
+                  alt="Remote Admin Logo"
                   className="h-10 w-10 object-contain"
                 />
                 <div>

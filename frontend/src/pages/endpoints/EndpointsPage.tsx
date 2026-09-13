@@ -1,29 +1,43 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEndpointsList, useBulkAction, useCreateLocalAdmin } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { ApprovalBadge } from '../../components/common/ApprovalBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { AddEndpointModal } from '../../components/modals/AddEndpointModal';
 import { ImportEndpointsModal } from '../../components/modals/ImportEndpointsModal';
-import { EndpointControlModal } from '../../components/modals/EndpointControlModal';
-import { WindowsIcon } from '../../components/common/WindowsIcon';
-import { Search, Plus, RefreshCw, Filter, ChevronRight, FileUp, CheckSquare, Square, SlidersHorizontal } from 'lucide-react';
+import { DeviceIcon } from '../../components/common/DeviceIcon';
+import { toast } from '../../store/useToastStore';
+import {
+  Search,
+  Plus,
+  RefreshCw,
+  Filter,
+  FileUp,
+  CheckSquare,
+  Square,
+  Copy,
+  Check,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  ExternalLink,
+} from 'lucide-react';
 
 export const EndpointsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const initialSearch = searchParams.get('search') || '';
   const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [approvalFilter, setApprovalFilter] = useState<string>('All');
+  const [authFilter, setAuthFilter] = useState<string>('All');
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedControlEndpointId, setSelectedControlEndpointId] = useState<string | null>(null);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<string[]>([]);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useEndpointsList({ search, page: 1, pageSize: 100 });
   const bulkActionMutation = useBulkAction();
@@ -33,7 +47,7 @@ export const EndpointsPage: React.FC = () => {
 
   const filteredItems = rawItems.filter((item) => {
     if (statusFilter !== 'All' && item.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
-    if (approvalFilter !== 'All' && item.approvalStatus.toLowerCase() !== approvalFilter.toLowerCase()) return false;
+    if (authFilter !== 'All' && (item.authStatus || 'Authorized').toLowerCase() !== authFilter.toLowerCase()) return false;
     return true;
   });
 
@@ -68,15 +82,13 @@ export const EndpointsPage: React.FC = () => {
     }
   };
 
-  const formatRelativeTime = (dateStr?: string | null) => {
-    if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-    if (diffSec < 60) return `${diffSec}s ago`;
-    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-    return date.toLocaleDateString();
+  const handleCopyToClipboard = (text: string, label: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(`${label}-${text}`);
+    toast.success('Copied to Clipboard', `${label}: ${text}`);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   return (
@@ -85,7 +97,9 @@ export const EndpointsPage: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 border border-slate-200 rounded-md shadow-xs">
         <div>
           <h1 className="text-base font-bold text-slate-900">Endpoint Management Inventory</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Central inventory of registered Windows 10/11 endpoints and servers</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Central inventory of managed Windows endpoints, connectivity, and authentication credentials
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -122,7 +136,7 @@ export const EndpointsPage: React.FC = () => {
                 setSearch(e.target.value);
                 setSearchParams(e.target.value ? { search: e.target.value } : {});
               }}
-              placeholder="Filter by hostname, FQDN, or IP address..."
+              placeholder="Filter by hostname, FQDN, IP, or credential user..."
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
@@ -142,9 +156,7 @@ export const EndpointsPage: React.FC = () => {
               className="px-2 py-0.5 text-xs font-medium border border-blue-300 rounded bg-white text-blue-900 focus:outline-none cursor-pointer"
             >
               <option value="">Bulk Actions...</option>
-              <option value="CheckConnection">Check Connection</option>
-              <option value="Approve">Approve Endpoints</option>
-              <option value="Reject">Reject Endpoints</option>
+              <option value="CheckConnection">Check Connection & Auth</option>
               <option value="CreateLocalAdmin">Provision Managed Local User ("ra")</option>
               <option value="RestartAgent">Restart Worker Agent</option>
             </select>
@@ -161,18 +173,19 @@ export const EndpointsPage: React.FC = () => {
             <option value="All">Status: All</option>
             <option value="Online">Online</option>
             <option value="Offline">Offline</option>
-            <option value="Unknown">Unknown</option>
           </select>
 
           <select
-            value={approvalFilter}
-            onChange={(e) => setApprovalFilter(e.target.value)}
+            value={authFilter}
+            onChange={(e) => setAuthFilter(e.target.value)}
             className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           >
-            <option value="All">Approval: All</option>
-            <option value="Approved">Approved</option>
-            <option value="PendingApproval">Pending Approval</option>
-            <option value="Rejected">Rejected</option>
+            <option value="All">Authorization: All</option>
+            <option value="Authorized">Authorized</option>
+            <option value="NotAuthorized">Not Authorized</option>
+            <option value="Checking">Checking</option>
+            <option value="AuthenticationFailed">Auth Failed</option>
+            <option value="Timeout">Timeout</option>
           </select>
         </div>
       </div>
@@ -198,56 +211,147 @@ export const EndpointsPage: React.FC = () => {
                 <tr>
                   <th className="p-2.5 w-10 text-center">
                     <button onClick={toggleSelectAll} className="text-slate-500 hover:text-slate-900">
-                      {isAllSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4" />}
+                      {isAllSelected ? (
+                        <CheckSquare className="h-4 w-4 text-[#2F3EA0]" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
                     </button>
                   </th>
                   <th className="p-2.5">Hostname</th>
                   <th className="p-2.5">IP Address</th>
                   <th className="p-2.5">Status</th>
-                  <th className="p-2.5">Approval</th>
-                  <th className="p-2.5">Agent Version</th>
-                  <th className="p-2.5">Last Heartbeat</th>
+                  <th className="p-2.5">Login / Authorization</th>
+                  <th className="p-2.5">Login User</th>
+                  <th className="p-2.5">OS / Device</th>
                   <th className="p-2.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
                 {filteredItems.map((ep) => {
                   const isSelected = selectedEndpointIds.includes(ep.id);
+                  const authStatus = ep.authStatus || 'Authorized';
+                  const authUser = ep.authUser || 'ra';
+                  const deviceType = ep.deviceType || 'Windows';
+
                   return (
                     <tr
                       key={ep.id}
-                      onClick={() => setSelectedControlEndpointId(ep.id)}
+                      onClick={() => navigate(`/endpoints/${ep.id}`)}
                       className={`hover:bg-slate-50 cursor-pointer transition-colors ${
                         isSelected ? 'bg-blue-50/50' : ''
                       }`}
                     >
                       <td className="p-2.5 text-center" onClick={(e) => toggleSelectEndpoint(ep.id, e)}>
                         <button className="text-slate-500 hover:text-slate-900">
-                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4 text-slate-300" />}
+                          {isSelected ? (
+                            <CheckSquare className="h-4 w-4 text-[#2F3EA0]" />
+                          ) : (
+                            <Square className="h-4 w-4 text-slate-300" />
+                          )}
                         </button>
                       </td>
+
+                      {/* Hostname Column */}
                       <td className="p-2.5 font-semibold text-slate-900">
                         <div className="flex items-center gap-1.5">
-                          <WindowsIcon size={14} className="text-[#0078D4] shrink-0" />
-                          <span>{ep.hostname}</span>
+                          <DeviceIcon deviceType={deviceType} size={15} />
+                          <span className="hover:underline hover:text-[#2F3EA0]">{ep.hostname}</span>
+                          <button
+                            onClick={(e) => handleCopyToClipboard(ep.hostname, 'Hostname', e)}
+                            title="Copy Hostname"
+                            className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                          >
+                            {copiedField === `Hostname-${ep.hostname}` ? (
+                              <Check className="h-3 w-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
                         </div>
-                        {ep.fqdn && <div className="text-[10px] text-slate-400 font-mono font-normal pl-5">{ep.fqdn}</div>}
+                        {ep.fqdn && (
+                          <div className="text-[10px] text-slate-400 font-mono font-normal pl-5">
+                            {ep.fqdn}
+                          </div>
+                        )}
                       </td>
-                      <td className="p-2.5 font-mono text-slate-700">{ep.ipAddress || '—'}</td>
+
+                      {/* IP Address Column */}
+                      <td className="p-2.5 font-mono text-slate-700">
+                        <div className="flex items-center gap-1.5">
+                          <span>{ep.ipAddress || '—'}</span>
+                          {ep.ipAddress && (
+                            <button
+                              onClick={(e) => handleCopyToClipboard(ep.ipAddress!, 'IP Address', e)}
+                              title="Copy IP Address"
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                            >
+                              {copiedField === `IP Address-${ep.ipAddress}` ? (
+                                <Check className="h-3 w-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Status Column */}
                       <td className="p-2.5">
                         <StatusBadge status={ep.status} size="sm" />
                       </td>
+
+                      {/* Login / Authorization Column */}
                       <td className="p-2.5">
-                        <ApprovalBadge status={ep.approvalStatus} />
+                        {authStatus === 'Authorized' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <ShieldCheck className="h-3 w-3" /> Authorized
+                          </span>
+                        )}
+                        {authStatus === 'NotAuthorized' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            <ShieldAlert className="h-3 w-3" /> Not Authorized
+                          </span>
+                        )}
+                        {authStatus === 'Checking' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <Clock className="h-3 w-3 animate-spin" /> Checking
+                          </span>
+                        )}
+                        {authStatus === 'AuthenticationFailed' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            <ShieldAlert className="h-3 w-3" /> Auth Failed
+                          </span>
+                        )}
+                        {authStatus === 'Timeout' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
+                            <Clock className="h-3 w-3" /> Timeout
+                          </span>
+                        )}
                       </td>
-                      <td className="p-2.5 font-mono text-slate-600">{ep.agentVersion || 'v2.4.1'}</td>
-                      <td className="p-2.5 font-mono text-slate-500">{formatRelativeTime(ep.lastHeartbeat)}</td>
+
+                      {/* Login User Column */}
+                      <td className="p-2.5 font-mono text-slate-800 font-medium">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px]">
+                          {authUser}
+                        </span>
+                      </td>
+
+                      {/* OS / Device Column */}
+                      <td className="p-2.5">
+                        <div className="flex items-center gap-1.5 font-medium text-slate-800">
+                          <DeviceIcon deviceType={deviceType} size={14} />
+                          <span>{deviceType === 'Windows' ? 'Windows Server / 11' : deviceType}</span>
+                        </div>
+                      </td>
+
+                      {/* Action Column */}
                       <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setSelectedControlEndpointId(ep.id)}
+                          onClick={() => navigate(`/endpoints/${ep.id}`)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs"
                         >
-                          <SlidersHorizontal className="h-3 w-3" /> Control Panel <ChevronRight className="h-3 w-3" />
+                          <span>Manage Endpoint</span> <ExternalLink className="h-3 w-3" />
                         </button>
                       </td>
                     </tr>
@@ -257,7 +361,9 @@ export const EndpointsPage: React.FC = () => {
             </table>
           </div>
           <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex justify-between items-center">
-            <span>Showing {filteredItems.length} of {rawItems.length} registered endpoints ({selectedEndpointIds.length} selected)</span>
+            <span>
+              Showing {filteredItems.length} of {rawItems.length} registered endpoints ({selectedEndpointIds.length} selected)
+            </span>
             <span>Refreshes automatically every 15s</span>
           </div>
         </div>
@@ -265,11 +371,6 @@ export const EndpointsPage: React.FC = () => {
 
       <AddEndpointModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <ImportEndpointsModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
-      <EndpointControlModal
-        endpointId={selectedControlEndpointId}
-        isOpen={Boolean(selectedControlEndpointId)}
-        onClose={() => setSelectedControlEndpointId(null)}
-      />
     </div>
   );
 };

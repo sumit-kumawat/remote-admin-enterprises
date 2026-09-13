@@ -41,9 +41,16 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Hostname).HasMaxLength(255);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(30);
             entity.Property(e => e.ApprovalStatus).HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.AuthMode).HasMaxLength(50);
+            entity.Property(e => e.AuthStatus).HasMaxLength(50);
+            entity.Property(e => e.DeviceType).HasMaxLength(50);
             entity.HasOne(e => e.Group)
                 .WithMany(g => g.Endpoints)
                 .HasForeignKey(e => e.GroupId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.CredentialProfile)
+                .WithMany()
+                .HasForeignKey(e => e.CredentialProfileId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

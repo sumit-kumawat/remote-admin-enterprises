@@ -39,21 +39,33 @@ export const Sidebar: React.FC = () => {
       {/* Brand Header */}
       <div className="h-12 border-b border-slate-200 flex items-center justify-between px-3 bg-slate-50">
         {!isCollapsed && (
-          <div className="flex items-center gap-2 overflow-hidden">
+          <button
+            onClick={() => window.location.reload()}
+            aria-label="Refresh current page"
+            title="Click to refresh current page"
+            className="flex items-center gap-2 overflow-hidden hover:opacity-80 transition-opacity focus:outline-none focus:ring-1 focus:ring-[#2F3EA0] rounded p-0.5 text-left"
+          >
             <img
               src="/ra-logo.svg"
               alt="Remote Admin Logo"
               className="h-7 w-7 object-contain shrink-0"
             />
             <span className="font-bold text-xs tracking-tight text-slate-900 truncate">Remote Admin</span>
-          </div>
+          </button>
         )}
         {isCollapsed && (
-          <img
-            src="/ra-logo.svg"
-            alt="Remote Admin Logo"
-            className="h-7 w-7 object-contain mx-auto"
-          />
+          <button
+            onClick={() => window.location.reload()}
+            aria-label="Refresh current page"
+            title="Click to refresh current page"
+            className="hover:opacity-80 transition-opacity focus:outline-none rounded p-0.5"
+          >
+            <img
+              src="/ra-logo.svg"
+              alt="Remote Admin Logo"
+              className="h-7 w-7 object-contain mx-auto"
+            />
+          </button>
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}

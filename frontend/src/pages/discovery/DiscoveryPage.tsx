@@ -6,11 +6,11 @@ import {
 } from '../../hooks/useDiscovery';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
-import { WindowsIcon } from '../../components/common/WindowsIcon';
+import { DeviceIcon } from '../../components/common/DeviceIcon';
 import { Play, Plus, RefreshCw, Network, CheckSquare, Square } from 'lucide-react';
 
 export const DiscoveryPage: React.FC = () => {
-  const [cidrInput, setCidrInput] = useState('192.168.1.0/24');
+  const [cidrInput, setCidrInput] = useState('192.168.100.0/24');
   const [selectedDiscoveredIds, setSelectedDiscoveredIds] = useState<string[]>([]);
 
   const { data: discovered = [], isLoading: isDiscLoading, refetch } = useDiscoveredEndpoints();
@@ -24,17 +24,19 @@ export const DiscoveryPage: React.FC = () => {
     }
   };
 
-  const isAllSelected = discovered.length > 0 && selectedDiscoveredIds.length === discovered.length;
+  const windowsDiscovered = discovered.filter((d) => d.isWindows);
+  const isAllSelected = windowsDiscovered.length > 0 && selectedDiscoveredIds.length === windowsDiscovered.length;
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedDiscoveredIds([]);
     } else {
-      setSelectedDiscoveredIds(discovered.map((d) => d.id));
+      setSelectedDiscoveredIds(windowsDiscovered.map((d) => d.id));
     }
   };
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = (id: string, isWin: boolean) => {
+    if (!isWin) return;
     setSelectedDiscoveredIds((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
@@ -53,7 +55,9 @@ export const DiscoveryPage: React.FC = () => {
       <div className="flex items-center justify-between bg-white p-4 border border-slate-200 rounded-md shadow-xs">
         <div>
           <h1 className="text-base font-bold text-slate-900">Network & Endpoint Discovery Scan</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Scan air-gapped subnet CIDR ranges to discover unmanaged Windows endpoints</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Scan air-gapped subnet CIDR ranges to discover unmanaged Windows endpoints, Linux hosts, and network devices
+          </p>
         </div>
         <button
           onClick={() => refetch()}
@@ -76,7 +80,7 @@ export const DiscoveryPage: React.FC = () => {
                 type="text"
                 value={cidrInput}
                 onChange={(e) => setCidrInput(e.target.value)}
-                placeholder="e.g. 192.168.1.0/24"
+                placeholder="e.g. 192.168.100.0/24"
                 className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded font-mono focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
@@ -85,9 +89,9 @@ export const DiscoveryPage: React.FC = () => {
           <div className="w-48">
             <label className="block text-[11px] font-medium text-slate-600 mb-1">Credential Profile</label>
             <select className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]">
+              <option>Default Local Admin (ra)</option>
               <option>Domain Admin Profile (corp.local)</option>
-              <option>Local Admin Accounts</option>
-              <option>WMI Anonymous Ping</option>
+              <option>WMI / RPC Anonymous Ping</option>
             </select>
           </div>
 
@@ -117,7 +121,7 @@ export const DiscoveryPage: React.FC = () => {
                 disabled={importDiscoveredMutation.isPending}
                 className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors disabled:opacity-50"
               >
-                <Plus className="h-3.5 w-3.5" /> Import {selectedDiscoveredIds.length} Selected into Managed Inventory
+                <Plus className="h-3.5 w-3.5" /> Import {selectedDiscoveredIds.length} Windows Endpoints into Inventory
               </button>
             )}
           </div>
@@ -134,7 +138,7 @@ export const DiscoveryPage: React.FC = () => {
                   <th className="p-2.5">Hostname</th>
                   <th className="p-2.5">IP Address</th>
                   <th className="p-2.5">MAC Address</th>
-                  <th className="p-2.5">OS Name</th>
+                  <th className="p-2.5">OS / Device Type</th>
                   <th className="p-2.5">Method</th>
                   <th className="p-2.5">Status</th>
                 </tr>
@@ -144,22 +148,32 @@ export const DiscoveryPage: React.FC = () => {
                   const isSelected = selectedDiscoveredIds.includes(item.id);
                   return (
                     <tr key={item.id} className="hover:bg-slate-50">
-                      <td className="p-2.5 text-center" onClick={() => toggleSelect(item.id)}>
-                        <button className="text-slate-500 hover:text-slate-900">
-                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4 text-slate-300" />}
-                        </button>
+                      <td className="p-2.5 text-center" onClick={() => toggleSelect(item.id, item.isWindows)}>
+                        {item.isWindows ? (
+                          <button className="text-slate-500 hover:text-slate-900">
+                            {isSelected ? (
+                              <CheckSquare className="h-4 w-4 text-[#2F3EA0]" />
+                            ) : (
+                              <Square className="h-4 w-4 text-slate-300" />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 text-[10px]" title="Non-Windows devices remain in discovery view">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="p-2.5 font-semibold text-slate-900">
                         <div className="flex items-center gap-1.5">
-                          {item.isWindows && <WindowsIcon size={14} className="text-[#0078D4] shrink-0" />}
+                          <DeviceIcon osName={item.osName} isWindows={item.isWindows} size={15} />
                           <span>{item.hostname}</span>
                         </div>
                       </td>
                       <td className="p-2.5 font-mono text-slate-700">{item.ipAddress}</td>
                       <td className="p-2.5 font-mono text-slate-500">{item.macAddress || '—'}</td>
                       <td className="p-2.5 font-medium text-slate-800">
-                        <span className="inline-flex items-center gap-1">
-                          {item.isWindows && <WindowsIcon size={12} className="text-[#0078D4]" />}
+                        <span className="inline-flex items-center gap-1.5">
+                          <DeviceIcon osName={item.osName} isWindows={item.isWindows} size={14} />
                           {item.osName || 'Windows Server / Workstation'}
                         </span>
                       </td>

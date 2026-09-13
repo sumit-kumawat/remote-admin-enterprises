@@ -66,6 +66,12 @@ export interface EndpointDto {
   macAddress?: string | null;
   status: string;
   approvalStatus: string;
+  authStatus?: string | null;
+  authMode?: string | null;
+  authUser?: string | null;
+  credentialProfileId?: string | null;
+  credentialProfileName?: string | null;
+  deviceType?: string | null;
   agentStatus?: string | null;
   agentVersion?: string | null;
   windowsEdition?: string | null;
@@ -79,6 +85,26 @@ export interface EndpointDto {
   lastSuccessfulJob?: string | null;
   lastFailedJob?: string | null;
   createdAt: string;
+}
+
+export interface LocalAccountDto {
+  username: string;
+  fullName?: string | null;
+  description?: string | null;
+  isEnabled: boolean;
+  isAdmin: boolean;
+  groups: string[];
+  passwordStatus?: string | null;
+}
+
+export interface SecuritySoftwareDto {
+  productName: string;
+  vendor?: string | null;
+  version?: string | null;
+  status: string;
+  isEnabled: boolean;
+  isRunning: boolean;
+  lastUpdated?: string | null;
 }
 
 export interface HardwareInventoryDto {
@@ -135,6 +161,8 @@ export interface EndpointDetailDto extends EndpointDto {
   networkInterfaces: NetworkInterfaceDto[];
   software: SoftwareInventoryItemDto[];
   drives: StorageDriveDto[];
+  localAccounts?: LocalAccountDto[];
+  securitySoftware?: SecuritySoftwareDto[];
 }
 
 export interface CreateEndpointRequest {

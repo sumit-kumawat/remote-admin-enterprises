@@ -62,16 +62,21 @@ public class DiscoveryController : ControllerBase
 
                 bool isAlive = reply.Status == IPStatus.Success;
                 bool isWinPortOpen = false;
+                bool isLinuxPortOpen = false;
 
                 if (!isAlive)
                 {
-                    // Secondary check: test TCP port 135 (RPC) or 445 (SMB)
                     isWinPortOpen = await TestTcpPortAsync(ip, 135, 300) || await TestTcpPortAsync(ip, 445, 300);
-                    if (isWinPortOpen) isAlive = true;
+                    isLinuxPortOpen = await TestTcpPortAsync(ip, 22, 300);
+                    if (isWinPortOpen || isLinuxPortOpen) isAlive = true;
                 }
                 else
                 {
                     isWinPortOpen = await TestTcpPortAsync(ip, 135, 300) || await TestTcpPortAsync(ip, 445, 300) || await TestTcpPortAsync(ip, 3389, 300);
+                    if (!isWinPortOpen)
+                    {
+                        isLinuxPortOpen = await TestTcpPortAsync(ip, 22, 300);
+                    }
                 }
 
                 if (isAlive)
@@ -84,15 +89,19 @@ public class DiscoveryController : ControllerBase
                     }
                     catch { }
 
+                    string osName = "Network Device";
+                    if (isWinPortOpen) osName = "Windows Server / Workstation";
+                    else if (isLinuxPortOpen) osName = "Linux Host (SSH/Enterprise)";
+
                     discoveredHosts.Add(new DiscoveryResult
                     {
                         ScanId = scanId,
                         Hostname = hostname,
                         IpAddress = ip,
                         MacAddress = "00:15:5D:" + string.Join(":", ip.Split('.').Select(x => int.Parse(x).ToString("X2"))).Substring(0, 8),
-                        OsName = isWinPortOpen ? "Windows Server / Workstation" : "Network Device / Linux Host",
-                        IsWindows = isWinPortOpen, // Only Windows endpoints are supported
-                        DiscoveryMethod = isWinPortOpen ? "WMI/RPC/Ping" : "ICMP Ping",
+                        OsName = osName,
+                        IsWindows = isWinPortOpen, // Only Windows endpoints can be imported to inventory
+                        DiscoveryMethod = isWinPortOpen ? "WMI/RPC/Ping" : (isLinuxPortOpen ? "SSH/ICMP" : "ICMP Ping"),
                         Status = "Unmanaged",
                         DiscoveredAt = DateTime.UtcNow,
                     });
@@ -169,6 +178,10 @@ public class DiscoveryController : ControllerBase
                     MacAddress = item.MacAddress,
                     Status = Domain.Enums.EndpointStatus.Online,
                     ApprovalStatus = Domain.Enums.EndpointApprovalStatus.Approved,
+                    AuthMode = "Inherit",
+                    AuthStatus = "Authorized",
+                    AuthUser = "ra",
+                    DeviceType = "Windows",
                     Description = $"Imported via Discovery Scan ({item.ScanId})",
                 });
                 importedCount++;

@@ -64,4 +64,19 @@ export const endpointsApi = {
     const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/power`, { action });
     return response.data;
   },
+
+  updateCredential: async (endpointId: string, authMode: string, credentialProfileId?: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/credential`, { authMode, credentialProfileId });
+    return response.data;
+  },
+
+  checkConnection: async (endpointId: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/check-connection`);
+    return response.data;
+  },
+
+  createLocalAccount: async (endpointId: string, payload: { username: string; password: string; fullName?: string; description?: string; isAdmin: boolean }): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/local-accounts/create`, payload);
+    return response.data;
+  },
 };
