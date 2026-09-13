@@ -673,7 +673,7 @@ public class EndpointsController : ControllerBase
             endpoint.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            _logger.LogInformation("Live connection check & query succeeded for {Hostname}", endpoint.Hostname);
+            _logger.LogInformation("[WMI SUCCESS] Host '{Hostname}' ({IpAddress}) authenticated successfully. AuthUser: '{AuthUser}' | Domain: '{Domain}'", endpoint.Hostname, endpoint.IpAddress, endpoint.AuthUser, endpoint.DomainWorkgroup);
 
             return Ok(new ApiResponse<object>
             {
@@ -698,7 +698,7 @@ public class EndpointsController : ControllerBase
             endpoint.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            _logger.LogWarning("Connection check failed for {Hostname}: {Reason}", endpoint.Hostname, queryResult.ErrorMessage);
+            _logger.LogWarning("[WMI FAILED] Host '{Hostname}' ({IpAddress}) query failed. AuthStatus: '{AuthStatus}' | Error: {Reason}", endpoint.Hostname, endpoint.IpAddress, endpoint.AuthStatus, queryResult.ErrorMessage);
 
             return Ok(new ApiResponse<object>
             {
@@ -708,7 +708,8 @@ public class EndpointsController : ControllerBase
                 {
                     status = endpoint.Status.ToString(),
                     authStatus = endpoint.AuthStatus,
-                    errorMessage = queryResult.ErrorMessage,
+                    authUser = endpoint.AuthUser,
+                    lastRefresh = endpoint.LastSuccessfulRefresh,
                 }
             });
         }
@@ -724,6 +725,8 @@ public class EndpointsController : ControllerBase
 
         var credProfile = await ResolveCredentialProfileAsync(endpoint);
         var result = await _wmiService.ExecutePowerActionAsync(endpoint, credProfile, request.Action);
+
+        _logger.LogInformation("[POWER EXECUTE] Action '{Action}' executed on host '{Hostname}' ({IpAddress}). Result: {Result}", request.Action, endpoint.Hostname, endpoint.IpAddress, result.Success ? "SUCCESS" : "FAILED");
 
         _db.AuditEvents.Add(new AuditEvent
         {

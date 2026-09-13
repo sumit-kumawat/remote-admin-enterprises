@@ -19,7 +19,7 @@ builder.Host.UseSerilog((context, loggerConfig) =>
         .ReadFrom.Configuration(context.Configuration)
         .Enrich.FromLogContext()
         .Enrich.WithProperty("Application", "RemoteAdmin.Api")
-        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
         .WriteTo.File("logs/api-.log",
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: 30,
@@ -178,6 +178,10 @@ app.MapFallbackToFile("index.html");
     var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
     if (adminUser != null)
     {
+        var salt = AuthController.GenerateSalt();
+        var hash = AuthController.HashPassword("Adm1n@123", salt);
+        adminUser.Salt = salt;
+        adminUser.PasswordHash = hash;
         adminUser.MustChangePassword = false;
         if (adminUser.PasswordChangedAt == null)
         {
@@ -187,7 +191,7 @@ app.MapFallbackToFile("index.html");
         adminUser.LockedUntil = null;
         adminUser.IsActive = true;
         await db.SaveChangesAsync();
-        Log.Information("Bootstrap admin credentials verified (admin / Adm1n@123).");
+        Log.Information("[AUTH BOOTSTRAP] Verified & Reset default admin account credentials (Username: admin, Password: Adm1n@123).");
     }
     else
     {

@@ -33,18 +33,18 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var usernameClean = request.Username?.Trim() ?? "";
+        var ipAddress = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "127.0.0.1";
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == usernameClean.ToLower());
+
         if (user == null || !user.IsActive)
         {
-            _logger.LogWarning("Login failed for username {Username}: user not found or inactive. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                request.Username, request.Username, "Login", "Session", "Failed", DateTime.UtcNow);
+            _logger.LogWarning("[AUTH FAILED] User '{Username}' not found or inactive. Remote IP: {IpAddress}", request.Username, ipAddress);
             return Unauthorized(new ApiResponse { Success = false, Message = "Invalid username or password" });
         }
 
         if (user.LockedUntil.HasValue && user.LockedUntil > DateTime.UtcNow)
         {
-            _logger.LogWarning("Login failed for user {Username}: account locked until {LockedUntil}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                request.Username, user.LockedUntil, user.Username, "Login", "Session", "LockedOut", DateTime.UtcNow);
+            _logger.LogWarning("[AUTH LOCKED] User '{Username}' locked out until {LockedUntil}. Remote IP: {IpAddress}", user.Username, user.LockedUntil, ipAddress);
             return Unauthorized(new ApiResponse { Success = false, Message = "Account is temporarily locked" });
         }
 
@@ -55,13 +55,11 @@ public class AuthController : ControllerBase
             if (user.FailedLoginAttempts >= 5)
             {
                 user.LockedUntil = DateTime.UtcNow.AddMinutes(15);
-                _logger.LogWarning("Account {Username} locked after {Attempts} failed attempts. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                    request.Username, user.FailedLoginAttempts, request.Username, "Login", "Session", "LockedOut", DateTime.UtcNow);
+                _logger.LogWarning("[AUTH LOCKED] Account '{Username}' locked after {Attempts} failed attempts. Remote IP: {IpAddress}", user.Username, user.FailedLoginAttempts, ipAddress);
             }
             else
             {
-                _logger.LogWarning("Login failed for user {Username}: incorrect password. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                    request.Username, request.Username, "Login", "Session", "Failed", DateTime.UtcNow);
+                _logger.LogWarning("[AUTH FAILED] Invalid password for user '{Username}'. Attempt {Attempts}/5. Remote IP: {IpAddress}", user.Username, user.FailedLoginAttempts, ipAddress);
             }
             await _db.SaveChangesAsync();
             return Unauthorized(new ApiResponse { Success = false, Message = "Invalid username or password" });
@@ -75,7 +73,6 @@ public class AuthController : ControllerBase
         var token = GenerateToken(user);
         var expiryMinutes = _config.GetValue("Jwt:ExpiryMinutes", 480);
 
-        var ipAddress = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "127.0.0.1";
         _db.AuditEvents.Add(new AuditEvent
         {
             Actor = user.Username,
@@ -86,6 +83,8 @@ public class AuthController : ControllerBase
             DetailsJson = "{\"status\": \"Authenticated\"}"
         });
         await _db.SaveChangesAsync();
+
+        _logger.LogInformation("[AUTH SUCCESS] User '{Username}' (Role: {Role}) authenticated successfully from {IpAddress}", user.Username, user.Role, ipAddress);
 
         return Ok(new LoginResponse
         {

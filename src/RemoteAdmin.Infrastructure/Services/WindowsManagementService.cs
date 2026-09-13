@@ -35,11 +35,14 @@ public class WindowsManagementService : IWindowsManagementService
         };
 
         // 1. Connectivity Check
+        _logger.LogInformation("[WMI QUERY START] Querying host '{Hostname}' ({TargetIp}) using AuthUser: '{AuthUser}' | AuthMode: '{AuthMode}'...", endpoint.Hostname, targetIp, credentialProfile?.Username ?? "None", endpoint.AuthMode);
+
         bool isReachable = await TestPingOrPortAsync(targetIp, cancellationToken);
         if (!isReachable)
         {
             result.AuthStatus = "Unreachable";
             result.ErrorMessage = $"Endpoint '{targetIp}' is unreachable over network ping and WMI/WinRM management ports (135, 445, 5985).";
+            _logger.LogWarning("[WMI UNREACHABLE] Host '{Hostname}' ({TargetIp}) did not respond to ping/WMI ports.", endpoint.Hostname, targetIp);
             return result;
         }
 

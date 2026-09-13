@@ -94,19 +94,21 @@ export const EndpointDetailPage: React.FC = () => {
   if (isLoading) return <LoadingSkeleton rows={8} />;
   if (isError || !response?.data) return <ErrorState onRetry={() => refetch()} />;
 
-  const endpoint = response.data;
+  const endpoint = response?.data;
+  if (!endpoint) return <ErrorState onRetry={() => refetch()} />;
+
   const hw = endpoint.hardware;
   const nics = endpoint.networkInterfaces || [];
   const drives = endpoint.drives || [];
   const physicalDisks = endpoint.physicalDisks || [];
   const softwareList = (endpoint.software || []).filter((s) =>
-    s.softwareName.toLowerCase().includes(softwareSearch.toLowerCase())
+    (s?.softwareName || '').toLowerCase().includes((softwareSearch || '').toLowerCase())
   );
   const localAccounts = endpoint.localAccounts || [];
   const securitySoftware = endpoint.securitySoftware || [];
   const sectionStatuses = endpoint.sectionStatuses || {};
 
-  const isOnline = endpoint.status.toLowerCase() === 'online';
+  const isOnline = (endpoint.status || '').toLowerCase() === 'online';
   const hasMacAddress = Boolean(endpoint.macAddress && endpoint.macAddress.trim().length > 0);
 
   const handleCopyToClipboard = (text: string, label: string) => {

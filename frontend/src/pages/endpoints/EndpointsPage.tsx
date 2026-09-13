@@ -328,7 +328,7 @@ export const EndpointsPage: React.FC = () => {
                             <ShieldAlert className="h-3 w-3" /> Auth Failed
                           </span>
                         )}
-                        {authStatus === 'Timeout' || authStatus === 'Unreachable' && (
+                        {(authStatus === 'Timeout' || authStatus === 'Unreachable') && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
                             <Clock className="h-3 w-3" /> Unreachable
                           </span>
