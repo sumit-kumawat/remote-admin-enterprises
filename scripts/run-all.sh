@@ -21,32 +21,24 @@ if command -v systemctl >/dev/null 2>&1; then
     sudo systemctl stop remote-admin-api.service 2>/dev/null || true
 fi
 
-echo "=== 4. Resetting PostgreSQL Docker Container ==="
+echo "=== 4. Ensuring PostgreSQL Container is Running ==="
 rm -f .env
-docker compose down -v || true
 docker compose up -d
-echo "Waiting 10s for PostgreSQL container..."
-sleep 10
+sleep 2
 
-echo "=== 5. Restoring & Updating Database ==="
-dotnet restore RemoteAdmin.slnx
-dotnet build RemoteAdmin.slnx
-
-# Migration runs automatically in Program.cs on startup, but try ef tool if available
-if command -v dotnet-ef >/dev/null 2>&1; then
-    dotnet-ef database update --project src/RemoteAdmin.Infrastructure --startup-project src/RemoteAdmin.Api || true
-fi
+echo "=== 5. Fast Building Backend API ==="
+dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release
 
 echo "=== 6. Preparing Frontend Dependencies ==="
 cd frontend
 if [ ! -d "node_modules" ]; then
-    npm install
+    echo "Installing frontend packages..."
+    npm install --prefer-offline --no-audit
 fi
 
 echo "=== 7. Launching Backend & Frontend ==="
 cd "$REPO_DIR"
 
-# Cleanup function to kill child processes on Ctrl+C
 cleanup() {
     echo ""
     echo "Stopping API and Frontend..."
@@ -55,7 +47,7 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 echo "Starting Backend API on http://0.0.0.0:5000 ..."
-ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/RemoteAdmin.Api &
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release --no-build &
 
 echo "Waiting for Backend API to start listening on http://127.0.0.1:5000 ..."
 for i in {1..30}; do
