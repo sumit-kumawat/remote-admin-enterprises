@@ -1,9 +1,9 @@
 import React from 'react';
 import { X, FileText, Calendar, User, Shield, Server, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
-import type { AuditEntryMock } from '../../types/mock';
+import type { AuditLogItem } from '../../api/auditApi';
 
 interface AuditDetailDrawerProps {
-  auditEntry: AuditEntryMock | null;
+  auditEntry: AuditLogItem | null;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -20,6 +20,11 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
   } else if (auditEntry.result === 'PreconditionRequired') {
     ResultIcon = AlertTriangle;
     resultColor = 'text-amber-600 bg-amber-50 border-amber-200';
+  }
+
+  let parsedDetails = null;
+  if (auditEntry.detailsJson) {
+    try { parsedDetails = JSON.parse(auditEntry.detailsJson); } catch { }
   }
 
   return (
@@ -43,7 +48,7 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
               <ResultIcon className="h-4 w-4 shrink-0" />
               <span>Result: {auditEntry.result}</span>
             </div>
-            <span className="font-mono text-[11px] text-slate-500">{auditEntry.id}</span>
+            <span className="font-mono text-[11px] text-slate-500">{auditEntry.id.substring(0, 8)}</span>
           </div>
 
           <div className="space-y-2 border-b border-slate-100 pb-3">
@@ -80,15 +85,15 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
 
             <div className="space-y-1 col-span-2">
               <div className="text-slate-500 text-[11px]">Origin IP Address</div>
-              <div className="font-mono text-slate-800">{auditEntry.ipAddress}</div>
+              <div className="font-mono text-slate-800">{auditEntry.ipAddress || '127.0.0.1'}</div>
             </div>
           </div>
 
-          {auditEntry.details && (
+          {parsedDetails && (
             <div className="space-y-1.5 pt-2 border-t border-slate-200">
               <div className="font-semibold text-slate-800 text-xs">Structured Event Payload:</div>
               <pre className="p-3 bg-slate-900 text-emerald-400 rounded-md font-mono text-[11px] overflow-x-auto leading-tight">
-                {JSON.stringify(auditEntry.details, null, 2)}
+                {JSON.stringify(parsedDetails, null, 2)}
               </pre>
             </div>
           )}

@@ -8,6 +8,8 @@ import {
   useNotificationRules,
   useToggleNotificationRule,
 } from '../../hooks/useSettings';
+import type { NotificationRuleData } from '../../hooks/useSettings';
+import { useCredentials, useCreateCredential, useDeleteCredential } from '../../hooks/useCredentials';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,6 +23,9 @@ import {
   KeyRound,
   Shield,
   Save,
+  Key,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 const passwordSchema = z
@@ -38,7 +43,7 @@ type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'system' | 'agent' | 'notifications' | 'about'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'credentials' | 'system' | 'agent' | 'notifications' | 'about'>('profile');
 
   const { data: sysInfo, isLoading: isSysLoading } = useSystemInfo();
   useAgentSettings();
@@ -46,6 +51,15 @@ export const SettingsPage: React.FC = () => {
   const { data: notificationRules = [] } = useNotificationRules();
   const toggleRuleMutation = useToggleNotificationRule();
   const changePasswordMutation = useChangePassword();
+
+  const { data: credentials = [], isLoading: isCredsLoading } = useCredentials();
+  const createCredMutation = useCreateCredential();
+  const deleteCredMutation = useDeleteCredential();
+
+  const [credName, setCredName] = useState('');
+  const [credUser, setCredUser] = useState('');
+  const [credPass, setCredPass] = useState('');
+  const [credDesc, setCredDesc] = useState('');
 
   const [hbSeconds, setHbSeconds] = useState(60);
   const [invMinutes, setInvMinutes] = useState(60);
@@ -67,6 +81,23 @@ export const SettingsPage: React.FC = () => {
     });
   };
 
+  const handleCreateCredential = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!credName.trim() || !credUser.trim() || !credPass.trim()) return;
+
+    createCredMutation.mutate(
+      { name: credName.trim(), username: credUser.trim(), password: credPass.trim(), description: credDesc.trim() },
+      {
+        onSuccess: () => {
+          setCredName('');
+          setCredUser('');
+          setCredPass('');
+          setCredDesc('');
+        },
+      }
+    );
+  };
+
   const handleSaveAgentSettings = (e: React.FormEvent) => {
     e.preventDefault();
     updateAgentMutation.mutate({
@@ -80,14 +111,15 @@ export const SettingsPage: React.FC = () => {
       {/* Header */}
       <div className="bg-white p-4 border border-slate-200 rounded-md shadow-xs">
         <h1 className="text-base font-bold text-slate-900">System Configuration & Administrative Settings</h1>
-        <p className="text-xs text-slate-500 mt-0.5">Manage account security, agent sync parameters, alert triggers, and server info</p>
+        <p className="text-xs text-slate-500 mt-0.5">Manage account security, credential profiles, agent sync parameters, alert triggers, and server info</p>
       </div>
 
       {/* Settings Navigation Tabs */}
       <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
-        <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">
+        <div className="flex flex-wrap border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">
           {[
             { id: 'profile', label: 'User Profile & Password', icon: User },
+            { id: 'credentials', label: 'Credential Profiles', icon: Key },
             { id: 'system', label: 'Server & Database Info', icon: Server },
             { id: 'agent', label: 'Agent Defaults', icon: Sliders },
             { id: 'notifications', label: 'Alert Notifications', icon: BellRing },
@@ -191,6 +223,96 @@ export const SettingsPage: React.FC = () => {
             </div>
           )}
 
+          {/* Credential Profiles Tab */}
+          {activeTab === 'credentials' && (
+            <div className="space-y-6">
+              <div className="p-4 border border-slate-200 rounded bg-slate-50/50 space-y-3">
+                <h2 className="font-semibold text-slate-900 text-xs border-b pb-2">Create Endpoint Login Credential Profile</h2>
+                <form onSubmit={handleCreateCredential} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Profile Name</label>
+                    <input
+                      type="text"
+                      value={credName}
+                      onChange={(e) => setCredName(e.target.value)}
+                      placeholder="e.g. Domain Admins"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Username</label>
+                    <input
+                      type="text"
+                      value={credUser}
+                      onChange={(e) => setCredUser(e.target.value)}
+                      placeholder="e.g. CORP\Administrator"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Password</label>
+                    <input
+                      type="password"
+                      value={credPass}
+                      onChange={(e) => setCredPass(e.target.value)}
+                      placeholder="••••••••••••"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      disabled={createCredMutation.isPending}
+                      className="w-full inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Create Profile
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Credential Profiles Table */}
+              <div className="border border-slate-200 rounded overflow-hidden">
+                <div className="p-3 bg-slate-50 border-b border-slate-200 font-semibold text-slate-800">
+                  Stored Endpoint Credential Profiles ({credentials.length})
+                </div>
+                {isCredsLoading ? (
+                  <LoadingSkeleton rows={3} />
+                ) : (
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700">
+                      <tr>
+                        <th className="p-2.5">Profile Name</th>
+                        <th className="p-2.5">Username</th>
+                        <th className="p-2.5">Description</th>
+                        <th className="p-2.5">Created</th>
+                        <th className="p-2.5 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-sans">
+                      {credentials.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold text-slate-900">{c.name}</td>
+                          <td className="p-2.5 font-mono text-slate-800">{c.username}</td>
+                          <td className="p-2.5 text-slate-600">{c.description || '—'}</td>
+                          <td className="p-2.5 text-slate-500">{new Date(c.createdAt).toLocaleDateString()}</td>
+                          <td className="p-2.5 text-right">
+                            <button
+                              onClick={() => deleteCredMutation.mutate(c.id)}
+                              className="text-rose-600 hover:text-rose-800 font-medium p-1 rounded"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* System Info Tab */}
           {activeTab === 'system' && (
             <div className="space-y-4">
@@ -283,7 +405,7 @@ export const SettingsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
-                    {notificationRules.map((rule) => (
+                    {notificationRules.map((rule: NotificationRuleData) => (
                       <tr key={rule.id} className="hover:bg-slate-50">
                         <td className="p-2.5 font-semibold text-slate-900">{rule.name}</td>
                         <td className="p-2.5 font-mono text-slate-700">{rule.eventCategory}</td>
@@ -311,9 +433,11 @@ export const SettingsPage: React.FC = () => {
           {activeTab === 'about' && (
             <div className="p-4 border border-slate-200 rounded bg-slate-50/50 space-y-3 max-w-lg">
               <div className="flex items-center gap-3 border-b pb-3">
-                <div className="h-10 w-10 bg-[#0F6CBD] rounded-lg text-white font-bold text-base flex items-center justify-center">
-                  RA
-                </div>
+                <img
+                  src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
+                  alt="Windows Server Logo"
+                  className="h-10 w-10 object-contain"
+                />
                 <div>
                   <h2 className="font-bold text-slate-900 text-sm">Remote Admin Enterprises</h2>
                   <p className="text-slate-500 text-xs">Enterprise Windows Endpoint Management Platform</p>

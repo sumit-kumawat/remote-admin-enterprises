@@ -40,16 +40,20 @@ export const Sidebar: React.FC = () => {
       <div className="h-12 border-b border-slate-800 flex items-center justify-between px-3">
         {!isCollapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
-            <div className="h-6 w-6 bg-[#0F6CBD] rounded flex items-center justify-center font-bold text-white text-xs shrink-0">
-              RA
-            </div>
+            <img
+              src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
+              alt="Windows Server Logo"
+              className="h-6 w-6 object-contain shrink-0"
+            />
             <span className="font-bold text-xs tracking-tight text-white truncate">Remote Admin</span>
           </div>
         )}
         {isCollapsed && (
-          <div className="h-6 w-6 bg-[#0F6CBD] rounded flex items-center justify-center font-bold text-white text-xs mx-auto">
-            RA
-          </div>
+          <img
+            src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
+            alt="Windows Server Logo"
+            className="h-6 w-6 object-contain mx-auto"
+          />
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}

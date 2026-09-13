@@ -22,4 +22,21 @@ export const endpointsApi = {
     const response = await apiClient.post<ApiResponse<EndpointDto>>('/api/Endpoints', payload);
     return response.data;
   },
+
+  importFile: async (formData: FormData): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>('/api/Endpoints/import-file', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  bulkAction: async (action: string, endpointIds: string[]): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>('/api/Endpoints/bulk-action', { action, endpointIds });
+    return response.data;
+  },
+
+  createLocalAdmin: async (endpointIds: string[]): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>('/api/Endpoints/create-local-admin', { endpointIds });
+    return response.data;
+  },
 };

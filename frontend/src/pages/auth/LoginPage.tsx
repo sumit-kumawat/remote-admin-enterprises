@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useLogin } from '../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Shield, Lock, User, AlertCircle } from 'lucide-react';
+import { Lock, User, AlertCircle } from 'lucide-react';
 import { ToastContainer } from '../../components/common/ToastContainer';
 
 const schema = z.object({
@@ -43,16 +43,20 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden select-none">
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-slate-100 font-sans p-4 relative overflow-hidden select-none">
       {/* Background Graphic Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px] opacity-50 pointer-events-none" />
 
       {/* Login Card */}
-      <div className="w-full max-w-sm bg-white rounded-lg shadow-2xl border border-slate-800 p-6 z-10 space-y-6">
+      <div className="w-full max-w-sm bg-white rounded-lg shadow-xl border border-slate-200 p-6 z-10 space-y-6">
         {/* Header Branding */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-[#0F6CBD] text-white shadow-md mb-1">
-            <Shield className="h-6 w-6" />
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-white border border-slate-200 shadow-xs p-1 mb-1">
+            <img
+              src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
+              alt="Windows Server Logo"
+              className="h-9 w-9 object-contain"
+            />
           </div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Remote Admin Enterprises</h1>
           <p className="text-xs text-slate-500 font-medium">Air-Gapped Windows Server & Endpoint Portal</p>
@@ -88,7 +92,7 @@ export const LoginPage: React.FC = () => {
                 autoFocus
                 {...register('username')}
                 placeholder="Enter username"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all bg-white text-slate-900"
               />
             </div>
             {errors.username && <p className="text-xs text-rose-600 mt-1">{errors.username.message}</p>}
@@ -106,7 +110,7 @@ export const LoginPage: React.FC = () => {
                 autoComplete="current-password"
                 {...register('password')}
                 placeholder="Enter password"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all bg-white text-slate-900"
               />
             </div>
             {errors.password && <p className="text-xs text-rose-600 mt-1">{errors.password.message}</p>}
@@ -115,7 +119,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full py-2.5 px-4 bg-[#0F6CBD] hover:bg-[#005a9e] text-white font-semibold text-xs rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:ring-offset-2 disabled:opacity-50"
+            className="w-full py-2.5 px-4 bg-[#0F6CBD] hover:bg-[#005a9e] text-white font-semibold text-xs rounded transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:ring-offset-2 disabled:opacity-50"
           >
             {loginMutation.isPending ? 'Authenticating...' : 'Sign In'}
           </button>

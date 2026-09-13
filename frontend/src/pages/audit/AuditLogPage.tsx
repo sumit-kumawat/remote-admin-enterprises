@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuditLogs } from '../../hooks/useAudit';
-import type { AuditEntryMock } from '../../types/mock';
+import type { AuditLogItem } from '../../api/auditApi';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { AuditDetailDrawer } from '../../components/drawers/AuditDetailDrawer';
@@ -10,7 +10,7 @@ export const AuditLogPage: React.FC = () => {
   const [actorFilter, setActorFilter] = useState('All');
   const [actionFilter, setActionFilter] = useState('All');
   const [resultFilter, setResultFilter] = useState('All');
-  const [selectedAudit, setSelectedAudit] = useState<AuditEntryMock | null>(null);
+  const [selectedAudit, setSelectedAudit] = useState<AuditLogItem | null>(null);
 
   const { data: auditLogs = [], isLoading, refetch } = useAuditLogs({
     actor: actorFilter,
@@ -70,7 +70,8 @@ export const AuditLogPage: React.FC = () => {
               <option value="CreateUser">CreateUser</option>
               <option value="DeleteUser">DeleteUser</option>
               <option value="CreateEndpoint">CreateEndpoint</option>
-              <option value="DeployPackage">DeployPackage</option>
+              <option value="ImportEndpoints">ImportEndpoints</option>
+              <option value="DeploySoftware">DeploySoftware</option>
               <option value="DiscoveryScan">DiscoveryScan</option>
             </select>
           </div>
@@ -126,7 +127,7 @@ export const AuditLogPage: React.FC = () => {
                     <td className="p-2.5">
                       <StatusBadge status={log.result} size="sm" />
                     </td>
-                    <td className="p-2.5 font-mono text-slate-500 text-[11px]">{log.ipAddress}</td>
+                    <td className="p-2.5 font-mono text-slate-500 text-[11px]">{log.ipAddress || '127.0.0.1'}</td>
                     <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setSelectedAudit(log)}

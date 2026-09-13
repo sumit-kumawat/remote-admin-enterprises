@@ -16,6 +16,12 @@ public class AppDbContext : DbContext
     public DbSet<EndpointNetworkInterface> EndpointNetworkInterfaces => Set<EndpointNetworkInterface>();
     public DbSet<SoftwareInventoryItem> SoftwareInventoryItems => Set<SoftwareInventoryItem>();
     public DbSet<DeploymentJob> DeploymentJobs => Set<DeploymentJob>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<CredentialProfile> CredentialProfiles => Set<CredentialProfile>();
+    public DbSet<DiscoveryResult> DiscoveryResults => Set<DiscoveryResult>();
+    public DbSet<SoftwarePackage> SoftwarePackages => Set<SoftwarePackage>();
+    public DbSet<BulkOperation> BulkOperations => Set<BulkOperation>();
+    public DbSet<BulkOperationItem> BulkOperationItems => Set<BulkOperationItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

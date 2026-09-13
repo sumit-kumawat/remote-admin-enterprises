@@ -1,41 +1,47 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { discoveryMockApi } from '../api/mock/discoveryMock';
+import {
+  fetchDiscoveredEndpoints,
+  startDiscoveryScan,
+  importDiscoveredEndpoints,
+} from '../api/discoveryApi';
+import type { DiscoveredEndpointItem } from '../api/discoveryApi';
 import { toast } from '../store/useToastStore';
 
-export function useDiscoveryScans() {
-  return useQuery({
-    queryKey: ['discoveryScans'],
-    queryFn: () => discoveryMockApi.getScans(),
+export const useDiscoveredEndpoints = () => {
+  return useQuery<DiscoveredEndpointItem[]>({
+    queryKey: ['discovery-results'],
+    queryFn: fetchDiscoveredEndpoints,
   });
-}
+};
 
-export function useDiscoveredEndpoints() {
-  return useQuery({
-    queryKey: ['discoveredEndpoints'],
-    queryFn: () => discoveryMockApi.getDiscoveredEndpoints(),
-  });
-}
-
-export function useStartDiscoveryScan() {
+export const useStartDiscoveryScan = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (cidrRange: string) => discoveryMockApi.startScan(cidrRange),
-    onSuccess: (scan) => {
-      queryClient.invalidateQueries({ queryKey: ['discoveryScans'] });
-      toast.success('Scan Started', `Discovery scan for ${scan.cidrRange} initiated.`);
+    mutationFn: (cidr: string) => startDiscoveryScan(cidr),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['discovery-results'] });
+      toast.success('Scan Completed', `Detected ${data.length} Windows hosts.`);
+    },
+    onError: (err: any) => {
+      toast.error('Scan Failed', err?.response?.data?.message || 'Discovery scan failed');
     },
   });
-}
+};
 
-export function useAddToManaged() {
+export const useImportDiscoveredEndpoints = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => discoveryMockApi.addToManaged(id),
+    mutationFn: (discoveredIds: string[]) => importDiscoveredEndpoints(discoveredIds),
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['discoveredEndpoints'] });
-      toast.success('Added to Managed', res.message);
+      queryClient.invalidateQueries({ queryKey: ['discovery-results'] });
+      queryClient.invalidateQueries({ queryKey: ['endpoints'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      toast.success('Import Successful', res.message || 'Imported Windows endpoints into inventory');
+    },
+    onError: (err: any) => {
+      toast.error('Import Failed', err?.response?.data?.message || 'Failed to import endpoints');
     },
   });
-}
+};

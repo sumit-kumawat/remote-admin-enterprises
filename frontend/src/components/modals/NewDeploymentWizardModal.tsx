@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
-import { useSoftwarePackages, useCreateDeployment } from '../../hooks/useDeployments';
+import { useSoftwarePackages } from '../../hooks/usePackages';
+import { useCreateDeployment } from '../../hooks/useDeployments';
 import { useEndpointsList } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../common/StatusBadge';
 import { Package, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
@@ -54,8 +55,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
         packageId: selectedPackageId,
         endpointIds: selectedEndpointIds,
         waveSize,
-        timeoutMinutes,
-        maxRetries,
+        timeoutSeconds: timeoutMinutes * 60,
       },
       {
         onSuccess: () => {
@@ -108,7 +108,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                     <div>
                       <div className="font-semibold text-slate-900">{pkg.name} v{pkg.version}</div>
                       <div className="text-slate-500 text-[11px]">
-                        {pkg.publisher} • {pkg.installerType} ({pkg.sizeMb} MB) • {pkg.architecture}
+                        {pkg.fileName} • ({(pkg.fileSize / (1024 * 1024)).toFixed(1)} MB) • {pkg.architecture}
                       </div>
                     </div>
                   </div>

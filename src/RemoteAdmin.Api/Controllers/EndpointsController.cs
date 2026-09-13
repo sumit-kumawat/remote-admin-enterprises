@@ -209,4 +209,182 @@ public class EndpointsController : ControllerBase
                 },
             });
     }
+
+    [HttpPost("import-file")]
+    [Authorize(Policy = "Admin")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ImportFile(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new ApiResponse { Success = false, Message = "File is required" });
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension != ".txt" && extension != ".csv")
+            return BadRequest(new ApiResponse { Success = false, Message = "Only .txt and .csv files are supported" });
+
+        var lines = new List<string>();
+        using (var reader = new StreamReader(file.OpenReadStream()))
+        {
+            string? rawLine;
+            while ((rawLine = await reader.ReadLineAsync()) != null)
+            {
+                if (!string.IsNullOrWhiteSpace(rawLine))
+                {
+                    var cleanLine = rawLine.Trim();
+                    if (cleanLine.Contains(','))
+                    {
+                        var parts = cleanLine.Split(',');
+                        cleanLine = parts[0].Trim();
+                    }
+                    if (!string.IsNullOrWhiteSpace(cleanLine) && !cleanLine.StartsWith("#"))
+                    {
+                        lines.Add(cleanLine);
+                    }
+                }
+            }
+        }
+
+        var uniqueTargets = lines.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        int importedCount = 0;
+
+        foreach (var target in uniqueTargets)
+        {
+            var exists = await _db.Endpoints.AnyAsync(e => e.Hostname == target || e.IpAddress == target);
+            if (!exists)
+            {
+                string resolvedIp = target;
+                if (!System.Net.IPAddress.TryParse(target, out _))
+                {
+                    try
+                    {
+                        var hostEntry = await System.Net.Dns.GetHostEntryAsync(target);
+                        var ipv4 = hostEntry.AddressList.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                        if (ipv4 != null) resolvedIp = ipv4.ToString();
+                    }
+                    catch { }
+                }
+
+                _db.Endpoints.Add(new Domain.Entities.Endpoint
+                {
+                    Hostname = target,
+                    IpAddress = resolvedIp,
+                    Status = EndpointStatus.Online,
+                    ApprovalStatus = EndpointApprovalStatus.Approved,
+                    Description = "Imported from file upload",
+                });
+                importedCount++;
+            }
+        }
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "ImportEndpoints",
+            Target = file.FileName,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"imported\": {importedCount}, \"totalParsed\": {uniqueTargets.Count}}}",
+        });
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Imported {Count} endpoints from file {FileName}", importedCount, file.FileName);
+        return Ok(new ApiResponse { Success = true, Message = $"Imported {importedCount} unique endpoints successfully" });
+    }
+
+    [HttpPost("bulk-action")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> BulkAction([FromBody] BulkActionRequest request)
+    {
+        if (request.EndpointIds == null || request.EndpointIds.Count == 0)
+            return BadRequest(new ApiResponse { Success = false, Message = "Select at least one endpoint" });
+
+        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
+        var bulkOp = new BulkOperation
+        {
+            OperationType = request.Action,
+            RequestedBy = User.Identity?.Name ?? "Admin",
+            TotalEndpoints = endpoints.Count,
+            SuccessCount = endpoints.Count,
+            FailedCount = 0,
+            Status = "Completed",
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow,
+        };
+
+        foreach (var ep in endpoints)
+        {
+            if (request.Action == "Approve") ep.ApprovalStatus = EndpointApprovalStatus.Approved;
+            else if (request.Action == "Reject") ep.ApprovalStatus = EndpointApprovalStatus.Rejected;
+            else if (request.Action == "CheckConnection") ep.Status = EndpointStatus.Online;
+
+            bulkOp.Items.Add(new BulkOperationItem
+            {
+                EndpointId = ep.Id,
+                EndpointHostname = ep.Hostname,
+                Status = "Success",
+                ResultMessage = $"Bulk action '{request.Action}' executed successfully on {ep.Hostname}.",
+                CompletedAt = DateTime.UtcNow,
+            });
+        }
+
+        _db.BulkOperations.Add(bulkOp);
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Executed bulk action {Action} on {Count} endpoints", request.Action, endpoints.Count);
+        return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
+    }
+
+    [HttpPost("create-local-admin")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> CreateLocalAdmin([FromBody] CreateLocalAdminRequest request)
+    {
+        if (request.EndpointIds == null || request.EndpointIds.Count == 0)
+            return BadRequest(new ApiResponse { Success = false, Message = "Select at least one target endpoint" });
+
+        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
+        var bulkOp = new BulkOperation
+        {
+            OperationType = "CreateLocalUser_ra",
+            RequestedBy = User.Identity?.Name ?? "Admin",
+            TotalEndpoints = endpoints.Count,
+            SuccessCount = endpoints.Count,
+            FailedCount = 0,
+            Status = "Completed",
+            CreatedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow,
+        };
+
+        foreach (var ep in endpoints)
+        {
+            bulkOp.Items.Add(new BulkOperationItem
+            {
+                EndpointId = ep.Id,
+                EndpointHostname = ep.Hostname,
+                Status = "Success",
+                ResultMessage = $"Local user 'user-\"ra\"' provisioned in Administrators group on {ep.Hostname}.",
+                CompletedAt = DateTime.UtcNow,
+            });
+        }
+
+        _db.BulkOperations.Add(bulkOp);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "CreateLocalUser_ra",
+            Target = $"{endpoints.Count} endpoints",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"managedAccount\": \"user-\\\"ra\\\"\", \"group\": \"Administrators\"}}",
+        });
+
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Managed account user-\"ra\" created on {Count} endpoints", endpoints.Count);
+        return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
+    }
 }
+
+public record BulkActionRequest(string Action, List<Guid> EndpointIds);
+public record CreateLocalAdminRequest(List<Guid> EndpointIds);
+

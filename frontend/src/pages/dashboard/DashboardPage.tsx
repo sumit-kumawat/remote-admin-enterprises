@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDashboardStats } from '../../hooks/useDashboard';
 import { useAuditLogs } from '../../hooks/useAudit';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
@@ -18,10 +18,11 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { Monitor, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Monitor, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, SlidersHorizontal } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
-  const { data: stats, isLoading, isError, refetch } = useDashboardStats();
+  const [refreshIntervalMs, setRefreshIntervalMs] = useState(15000); // Default: 15 seconds
+  const { data: stats, isLoading, isError, refetch, isRefetching } = useDashboardStats(refreshIntervalMs);
   const { data: auditLogs = [] } = useAuditLogs();
 
   if (isLoading) return <LoadingSkeleton rows={6} />;
@@ -43,25 +44,46 @@ export const DashboardPage: React.FC = () => {
   ];
 
   const osDistributionData = [
-    { os: 'Windows 11 Ent', count: stats.windows11Count || 310 },
-    { os: 'Windows 10 Pro', count: stats.windows10Count || 175 },
-    { os: 'Windows Server', count: 45 },
+    { os: 'Windows 11 Ent', count: stats.windows11Count || 0 },
+    { os: 'Windows 10 Pro', count: stats.windows10Count || 0 },
+    { os: 'Windows Server', count: stats.totalEndpoints > 0 ? Math.max(1, stats.totalEndpoints - (stats.windows11Count + stats.windows10Count)) : 0 },
   ];
 
   return (
     <div className="space-y-5 text-xs font-sans">
       {/* Top Header Controls */}
-      <div className="flex items-center justify-between bg-white p-4 border border-slate-200 rounded-md shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 border border-slate-200 rounded-md shadow-xs">
         <div>
           <h1 className="text-base font-bold text-slate-900">Windows Server & Endpoint Manager Dashboard</h1>
           <p className="text-xs text-slate-500 mt-0.5">Real-time infrastructure health, status distribution, and active job metrics</p>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh Metrics
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Auto Refresh Select Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
+            <span className="text-[11px] text-slate-600 font-medium">Auto-Refresh:</span>
+            <select
+              value={refreshIntervalMs}
+              onChange={(e) => setRefreshIntervalMs(Number(e.target.value))}
+              className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+            >
+              <option value={5000}>5 seconds</option>
+              <option value={15000}>15 seconds (Default)</option>
+              <option value={30000}>30 seconds</option>
+            </select>
+          </div>
+
+          {/* Refresh Metrics Button */}
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50 shadow-xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+            <span>{isRefetching ? 'Refetching...' : 'Refresh Metrics'}</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Tiles */}
@@ -72,7 +94,7 @@ export const DashboardPage: React.FC = () => {
             <Monitor className="h-4 w-4 text-[#0F6CBD]" />
           </div>
           <div className="text-xl font-bold text-slate-900">{stats.totalEndpoints}</div>
-          <div className="text-[10px] text-slate-400">Air-gapped inventory</div>
+          <div className="text-[10px] text-slate-400">Managed inventory</div>
         </div>
 
         <div className="p-3 bg-white border border-slate-200 rounded-md shadow-xs space-y-1">
@@ -206,7 +228,7 @@ export const DashboardPage: React.FC = () => {
                   <td className="p-2">
                     <StatusBadge status={log.result} size="sm" />
                   </td>
-                  <td className="p-2 font-mono text-slate-500 text-[11px]">{log.ipAddress}</td>
+                  <td className="p-2 font-mono text-slate-500 text-[11px]">{log.ipAddress || '127.0.0.1'}</td>
                 </tr>
               ))}
             </tbody>

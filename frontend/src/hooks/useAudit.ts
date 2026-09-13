@@ -1,15 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { auditMockApi } from '../api/mock/auditMock';
+import { fetchAuditLogs } from '../api/auditApi';
+import type { AuditLogItem } from '../api/auditApi';
 
-export function useAuditLogs(params?: {
-  actor?: string;
-  action?: string;
-  result?: string;
-  startDate?: string;
-  endDate?: string;
-}) {
-  return useQuery({
-    queryKey: ['auditLogs', params],
-    queryFn: () => auditMockApi.getAuditLogs(params),
+export const useAuditLogs = (filters?: { actor?: string; action?: string; result?: string }) => {
+  return useQuery<AuditLogItem[]>({
+    queryKey: ['audit-logs', filters],
+    queryFn: () => fetchAuditLogs(filters?.actor, filters?.action, filters?.result),
+    refetchInterval: 15000,
   });
-}
+};
