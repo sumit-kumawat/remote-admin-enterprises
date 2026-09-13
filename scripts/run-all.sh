@@ -5,6 +5,8 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR"
 
 echo "=== 1. Pulling latest code ==="
+git checkout -- frontend/package-lock.json package-lock.json 2>/dev/null || true
+git reset --hard HEAD 2>/dev/null || true
 git pull origin main
 
 echo "=== 2. Opening firewall ports (5000 API, 3000 Frontend) if firewalld is active ==="
@@ -26,14 +28,14 @@ docker compose up -d
 echo "Waiting 10s for PostgreSQL container..."
 sleep 10
 
-echo "=== 5. Restoring & Updating Database Migrations ==="
+echo "=== 5. Restoring & Updating Database ==="
 dotnet restore RemoteAdmin.slnx
 dotnet build RemoteAdmin.slnx
-DOTNET_ROOT="${DOTNET_ROOT:-/opt/homebrew/Cellar/dotnet/10.0.400/libexec}" ~/.dotnet/tools/dotnet-ef database update \
-  --project src/RemoteAdmin.Infrastructure \
-  --startup-project src/RemoteAdmin.Api 2>/dev/null || dotnet ef database update \
-  --project src/RemoteAdmin.Infrastructure \
-  --startup-project src/RemoteAdmin.Api 2>/dev/null || true
+
+# Migration runs automatically in Program.cs on startup, but try ef tool if available
+if command -v dotnet-ef >/dev/null 2>&1; then
+    dotnet-ef database update --project src/RemoteAdmin.Infrastructure --startup-project src/RemoteAdmin.Api || true
+fi
 
 echo "=== 6. Preparing Frontend Dependencies ==="
 cd frontend
@@ -48,7 +50,7 @@ cd "$REPO_DIR"
 cleanup() {
     echo ""
     echo "Stopping API and Frontend..."
-    kill 0
+    kill 0 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
 
@@ -64,7 +66,7 @@ for i in {1..30}; do
     sleep 1
 done
 
-echo "Starting Frontend Dev Server on http://localhost:3000 ..."
+echo "Starting Frontend Dev Server on http://0.0.0.0:3000 ..."
 cd frontend
 npm run dev -- --host &
 
