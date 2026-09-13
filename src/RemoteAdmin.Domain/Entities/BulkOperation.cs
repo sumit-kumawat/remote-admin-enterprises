@@ -25,5 +25,6 @@ public class BulkOperationItem
     public string? ResultMessage { get; set; }
     public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public BulkOperation? BulkOperation { get; set; }
 }
