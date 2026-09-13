@@ -32,33 +32,33 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`bg-slate-900 text-slate-200 border-r border-slate-800 flex flex-col transition-all duration-200 shrink-0 select-none z-20 ${
+      className={`bg-white text-slate-700 border-r border-slate-200 flex flex-col transition-all duration-200 shrink-0 select-none z-20 shadow-xs ${
         isCollapsed ? 'w-14' : 'w-56'
       }`}
     >
       {/* Brand Header */}
-      <div className="h-12 border-b border-slate-800 flex items-center justify-between px-3">
+      <div className="h-12 border-b border-slate-200 flex items-center justify-between px-3 bg-slate-50">
         {!isCollapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
             <img
-              src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
-              alt="Windows Server Logo"
-              className="h-6 w-6 object-contain shrink-0"
+              src="/ra-logo.png"
+              alt="Remote Admin Logo"
+              className="h-7 w-7 object-contain shrink-0"
             />
-            <span className="font-bold text-xs tracking-tight text-white truncate">Remote Admin</span>
+            <span className="font-bold text-xs tracking-tight text-slate-900 truncate">Remote Admin</span>
           </div>
         )}
         {isCollapsed && (
           <img
-            src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
-            alt="Windows Server Logo"
-            className="h-6 w-6 object-contain mx-auto"
+            src="/ra-logo.png"
+            alt="Remote Admin Logo"
+            className="h-7 w-7 object-contain mx-auto"
           />
         )}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors ml-auto"
+          className="text-slate-500 hover:text-slate-900 p-1 rounded hover:bg-slate-200 transition-colors ml-auto"
         >
           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
@@ -77,8 +77,8 @@ export const Sidebar: React.FC = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 text-xs font-medium rounded transition-all ${
                   isActive
-                    ? 'bg-[#0F6CBD] text-white font-semibold border-l-4 border-white shadow-xs'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-[#2F3EA0] text-white font-semibold shadow-xs'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 } ${isCollapsed ? 'justify-center px-0' : ''}`
               }
             >
@@ -91,9 +91,9 @@ export const Sidebar: React.FC = () => {
 
       {/* Footer Status */}
       {!isCollapsed && (
-        <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400">
-          <div className="flex items-center gap-1.5 font-medium text-slate-300">
-            <ShieldAlert className="h-3.5 w-3.5 text-emerald-400" />
+        <div className="p-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-600">
+          <div className="flex items-center gap-1.5 font-medium text-slate-800">
+            <ShieldAlert className="h-3.5 w-3.5 text-emerald-600" />
             <span>Air-Gapped Console</span>
           </div>
           <div className="text-[10px] text-slate-500 mt-0.5">v1.0.0 — Enterprise</div>

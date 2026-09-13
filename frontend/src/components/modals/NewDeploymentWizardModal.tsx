@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { useSoftwarePackages } from '../../hooks/usePackages';
+import { uploadSoftwarePackage } from '../../api/packagesApi';
 import { useCreateDeployment } from '../../hooks/useDeployments';
 import { useEndpointsList } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../common/StatusBadge';
@@ -91,7 +92,36 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
         {/* Step 1: Select Package */}
         {step === 1 && (
           <div className="space-y-3">
-            <label className="block text-xs font-semibold text-slate-800">Select Software Package to Deploy</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-800">Select Software Package to Deploy</label>
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs">
+                <span>Upload Local Package (.msi / .exe)</span>
+                <input
+                  type="file"
+                  accept=".msi,.exe"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      formData.append('name', file.name.replace(/\.[^/.]+$/, ''));
+                      formData.append('version', '1.0.0');
+                      formData.append('architecture', 'x64');
+                      try {
+                        const newPkg = await uploadSoftwarePackage(formData);
+                        if (newPkg?.id) {
+                          setSelectedPackageId(newPkg.id);
+                        }
+                      } catch (err: any) {
+                        alert(err.response?.data?.message || 'Failed to upload package file');
+                      }
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
             <div className="space-y-2 max-h-60 overflow-y-auto p-1">
               {packages.map((pkg) => (
                 <div
@@ -99,12 +129,12 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                   onClick={() => setSelectedPackageId(pkg.id)}
                   className={`p-3 border rounded-md cursor-pointer transition-all flex items-center justify-between text-xs ${
                     selectedPackageId === pkg.id
-                      ? 'border-[#0F6CBD] bg-blue-50/50 ring-1 ring-[#0F6CBD]'
+                      ? 'border-[#2F3EA0] bg-blue-50/50 ring-1 ring-[#2F3EA0]'
                       : 'border-slate-200 hover:border-slate-300 bg-white'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Package className="h-5 w-5 text-[#0F6CBD]" />
+                    <Package className="h-5 w-5 text-[#2F3EA0]" />
                     <div>
                       <div className="font-semibold text-slate-900">{pkg.name} v{pkg.version}</div>
                       <div className="text-slate-500 text-[11px]">
@@ -112,7 +142,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                       </div>
                     </div>
                   </div>
-                  {selectedPackageId === pkg.id && <CheckCircle2 className="h-5 w-5 text-[#0F6CBD]" />}
+                  {selectedPackageId === pkg.id && <CheckCircle2 className="h-5 w-5 text-[#2F3EA0]" />}
                 </div>
               ))}
             </div>

@@ -54,7 +54,7 @@ export const Header: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Global search endpoints..."
-            className="w-48 focus:w-64 transition-all duration-200 pl-8 pr-3 py-1 text-xs border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="w-48 focus:w-64 transition-all duration-200 pl-8 pr-3 py-1 text-xs border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           />
         </form>
 
@@ -62,10 +62,10 @@ export const Header: React.FC = () => {
         <button
           onClick={() => setIsNotificationsOpen(true)}
           aria-label="View notifications"
-          className="relative p-1.5 text-slate-600 hover:text-[#0F6CBD] hover:bg-slate-100 rounded transition-colors"
+          className="relative p-1.5 text-slate-600 hover:text-[#2F3EA0] hover:bg-slate-100 rounded transition-colors"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#0F6CBD]" />
+          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#2F3EA0]" />
         </button>
 
         {/* User Menu Dropdown */}
@@ -75,7 +75,7 @@ export const Header: React.FC = () => {
             aria-label="User account menu"
             className="flex items-center gap-2 px-2 py-1 border border-slate-200 hover:border-slate-300 rounded bg-slate-50 hover:bg-slate-100 transition-colors"
           >
-            <div className="h-5 w-5 rounded-full bg-[#0F6CBD] text-white flex items-center justify-center font-bold text-[10px]">
+            <div className="h-5 w-5 rounded-full bg-[#2F3EA0] text-white flex items-center justify-center font-bold text-[10px]">
               {user?.username?.[0]?.toUpperCase() || 'A'}
             </div>
             <span className="text-xs font-semibold text-slate-800">{user?.username || 'User'}</span>

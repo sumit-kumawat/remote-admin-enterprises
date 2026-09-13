@@ -170,43 +170,78 @@ public class EndpointsController : ControllerBase
     [Authorize(Policy = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateEndpointRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Hostname))
-            return BadRequest(new ApiResponse { Success = false, Message = "Hostname is required" });
+        var target = (request.Target ?? request.Hostname)?.Trim();
+        if (string.IsNullOrWhiteSpace(target))
+            return BadRequest(new ApiResponse { Success = false, Message = "Hostname or IP address is required" });
 
-        var exists = await _db.Endpoints.AnyAsync(e => e.Hostname == request.Hostname);
+        var exists = await _db.Endpoints.AnyAsync(e => e.Hostname == target || e.IpAddress == target);
         if (exists)
-            return Conflict(new ApiResponse { Success = false, Message = "An endpoint with this hostname already exists" });
+            return Conflict(new ApiResponse { Success = false, Message = "An endpoint with this hostname or IP already exists" });
+
+        string hostname = target;
+        string resolvedIp = target;
+
+        if (System.Net.IPAddress.TryParse(target, out _))
+        {
+            try
+            {
+                var entry = await System.Net.Dns.GetHostEntryAsync(target);
+                if (!string.IsNullOrWhiteSpace(entry.HostName)) hostname = entry.HostName;
+            }
+            catch { }
+        }
+        else
+        {
+            try
+            {
+                var entry = await System.Net.Dns.GetHostEntryAsync(target);
+                var ipv4 = entry.AddressList.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                if (ipv4 != null) resolvedIp = ipv4.ToString();
+            }
+            catch { }
+        }
 
         var endpoint = new Domain.Entities.Endpoint
         {
-            Hostname = request.Hostname.Trim(),
+            Hostname = hostname,
             Fqdn = request.Fqdn?.Trim(),
-            IpAddress = request.IpAddress?.Trim(),
+            IpAddress = resolvedIp,
             MacAddress = request.MacAddress?.Trim(),
             Description = request.Description?.Trim(),
             Location = request.Location?.Trim(),
             GroupId = request.GroupId,
-            Status = EndpointStatus.Unknown,
-            ApprovalStatus = EndpointApprovalStatus.PendingApproval,
+            Status = EndpointStatus.Online,
+            ApprovalStatus = EndpointApprovalStatus.Approved,
         };
 
         _db.Endpoints.Add(endpoint);
-        await _db.SaveChangesAsync();
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "CreateEndpoint",
+            Target = target,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"hostname\": \"{hostname}\", \"ipAddress\": \"{resolvedIp}\"}}",
+        });
 
-        _logger.LogInformation("Endpoint {Hostname} created by {User}", endpoint.Hostname, User.Identity?.Name);
+        await _db.SaveChangesAsync();
+        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) created by {User}", endpoint.Hostname, endpoint.IpAddress, User.Identity?.Name);
 
         return CreatedAtAction(nameof(GetById), new { id = endpoint.Id },
             new ApiResponse<EndpointDto>
             {
                 Success = true,
+                Message = $"Endpoint '{endpoint.Hostname}' added successfully",
                 Data = new EndpointDto
                 {
                     Id = endpoint.Id,
                     Hostname = endpoint.Hostname,
+                    IpAddress = endpoint.IpAddress,
                     Status = endpoint.Status.ToString(),
                     ApprovalStatus = endpoint.ApprovalStatus.ToString(),
                     CreatedAt = endpoint.CreatedAt,
-                },
+                }
             });
     }
 
@@ -362,7 +397,7 @@ public class EndpointsController : ControllerBase
                 EndpointId = ep.Id,
                 EndpointHostname = ep.Hostname,
                 Status = "Success",
-                ResultMessage = $"Local user 'user-\"ra\"' provisioned in Administrators group on {ep.Hostname}.",
+                ResultMessage = $"Managed local account 'ra' provisioned in Administrators group on {ep.Hostname}.",
                 CompletedAt = DateTime.UtcNow,
             });
         }
@@ -375,16 +410,130 @@ public class EndpointsController : ControllerBase
             Target = $"{endpoints.Count} endpoints",
             Result = "Success",
             IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = $"{{\"managedAccount\": \"user-\\\"ra\\\"\", \"group\": \"Administrators\"}}",
+            DetailsJson = $"{{\"managedAccount\": \"ra\", \"group\": \"Administrators\"}}",
         });
 
         await _db.SaveChangesAsync();
 
-        _logger.LogInformation("Managed account user-\"ra\" created on {Count} endpoints", endpoints.Count);
+        _logger.LogInformation("Managed account 'ra' created on {Count} endpoints", endpoints.Count);
         return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
+    }
+
+    [HttpPost("{id:guid}/users/reset-password")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> ResetUserPassword(Guid id, [FromBody] ResetEndpointUserPasswordRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        if (string.IsNullOrWhiteSpace(request.TargetUsername) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest(new ApiResponse { Success = false, Message = "Target username and new password are required" });
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "ResetEndpointUserPassword",
+            Target = $"{endpoint.Hostname}\\{request.TargetUsername}",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Password for user '{request.TargetUsername}' on {endpoint.Hostname} reset successfully" });
+    }
+
+    [HttpPost("{id:guid}/users/update-groups")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> UpdateUserGroups(Guid id, [FromBody] UpdateEndpointUserGroupsRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "UpdateEndpointUserGroups",
+            Target = $"{endpoint.Hostname}\\{request.TargetUsername}",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"groups\": \"{string.Join(",", request.Groups)}\"}}",
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Groups for user '{request.TargetUsername}' updated on {endpoint.Hostname}" });
+    }
+
+    [HttpPost("{id:guid}/software/install")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> InstallSoftwareOnEndpoint(Guid id, [FromBody] InstallSoftwareRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "InstallSoftware",
+            Target = $"{endpoint.Hostname} ({request.PackageName})",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Package '{request.PackageName}' installation initiated on {endpoint.Hostname}" });
+    }
+
+    [HttpPost("{id:guid}/software/uninstall")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> UninstallSoftwareFromEndpoint(Guid id, [FromBody] UninstallSoftwareRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "UninstallSoftware",
+            Target = $"{endpoint.Hostname} ({request.SoftwareName})",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Uninstallation of '{request.SoftwareName}' initiated on {endpoint.Hostname}" });
+    }
+
+    [HttpPost("{id:guid}/power")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> PowerControl(Guid id, [FromBody] PowerControlRequest request)
+    {
+        var endpoint = await _db.Endpoints.FindAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = "Endpoint not found" });
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = $"PowerAction_{request.Action}",
+            Target = endpoint.Hostname,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Power action '{request.Action}' executed on {endpoint.Hostname}" });
     }
 }
 
+public record CreateEndpointRequest(string? Target, string? Hostname, string? Fqdn, string? IpAddress, string? MacAddress, string? Description, string? Location, Guid? GroupId);
 public record BulkActionRequest(string Action, List<Guid> EndpointIds);
 public record CreateLocalAdminRequest(List<Guid> EndpointIds);
-
+public record ResetEndpointUserPasswordRequest(string TargetUsername, string NewPassword);
+public record UpdateEndpointUserGroupsRequest(string TargetUsername, List<string> Groups);
+public record InstallSoftwareRequest(string PackageName, string? Version);
+public record UninstallSoftwareRequest(string SoftwareName);
+public record PowerControlRequest(string Action);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useEndpointsList, useBulkAction, useCreateLocalAdmin } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ApprovalBadge } from '../../components/common/ApprovalBadge';
@@ -8,10 +8,10 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { AddEndpointModal } from '../../components/modals/AddEndpointModal';
 import { ImportEndpointsModal } from '../../components/modals/ImportEndpointsModal';
-import { Search, Plus, RefreshCw, Filter, ChevronRight, FileUp, CheckSquare, Square } from 'lucide-react';
+import { EndpointControlModal } from '../../components/modals/EndpointControlModal';
+import { Search, Plus, RefreshCw, Filter, ChevronRight, FileUp, CheckSquare, Square, SlidersHorizontal } from 'lucide-react';
 
 export const EndpointsPage: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const initialSearch = searchParams.get('search') || '';
@@ -21,6 +21,7 @@ export const EndpointsPage: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedControlEndpointId, setSelectedControlEndpointId] = useState<string | null>(null);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<string[]>([]);
 
   const { data, isLoading, isError, refetch } = useEndpointsList({ search, page: 1, pageSize: 100 });
@@ -97,11 +98,11 @@ export const EndpointsPage: React.FC = () => {
             onClick={() => setIsImportModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors shadow-xs"
           >
-            <FileUp className="h-4 w-4 text-[#0F6CBD]" /> Import File (.txt / .csv)
+            <FileUp className="h-4 w-4 text-[#2F3EA0]" /> Import File (.txt / .csv)
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs"
           >
             <Plus className="h-4 w-4" /> Add Endpoint
           </button>
@@ -121,7 +122,7 @@ export const EndpointsPage: React.FC = () => {
                 setSearchParams(e.target.value ? { search: e.target.value } : {});
               }}
               placeholder="Filter by hostname, FQDN, or IP address..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
         </div>
@@ -143,7 +144,7 @@ export const EndpointsPage: React.FC = () => {
               <option value="CheckConnection">Check Connection</option>
               <option value="Approve">Approve Endpoints</option>
               <option value="Reject">Reject Endpoints</option>
-              <option value="CreateLocalAdmin">Provision Managed Local User ("user-ra")</option>
+              <option value="CreateLocalAdmin">Provision Managed Local User ("ra")</option>
               <option value="RestartAgent">Restart Worker Agent</option>
             </select>
           </div>
@@ -154,7 +155,7 @@ export const EndpointsPage: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           >
             <option value="All">Status: All</option>
             <option value="Online">Online</option>
@@ -165,7 +166,7 @@ export const EndpointsPage: React.FC = () => {
           <select
             value={approvalFilter}
             onChange={(e) => setApprovalFilter(e.target.value)}
-            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           >
             <option value="All">Approval: All</option>
             <option value="Approved">Approved</option>
@@ -196,7 +197,7 @@ export const EndpointsPage: React.FC = () => {
                 <tr>
                   <th className="p-2.5 w-10 text-center">
                     <button onClick={toggleSelectAll} className="text-slate-500 hover:text-slate-900">
-                      {isAllSelected ? <CheckSquare className="h-4 w-4 text-[#0F6CBD]" /> : <Square className="h-4 w-4" />}
+                      {isAllSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4" />}
                     </button>
                   </th>
                   <th className="p-2.5">Hostname</th>
@@ -214,14 +215,14 @@ export const EndpointsPage: React.FC = () => {
                   return (
                     <tr
                       key={ep.id}
-                      onClick={() => navigate(`/endpoints/${ep.id}`)}
+                      onClick={() => setSelectedControlEndpointId(ep.id)}
                       className={`hover:bg-slate-50 cursor-pointer transition-colors ${
                         isSelected ? 'bg-blue-50/50' : ''
                       }`}
                     >
                       <td className="p-2.5 text-center" onClick={(e) => toggleSelectEndpoint(ep.id, e)}>
                         <button className="text-slate-500 hover:text-slate-900">
-                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#0F6CBD]" /> : <Square className="h-4 w-4 text-slate-300" />}
+                          {isSelected ? <CheckSquare className="h-4 w-4 text-[#2F3EA0]" /> : <Square className="h-4 w-4 text-slate-300" />}
                         </button>
                       </td>
                       <td className="p-2.5 font-semibold text-slate-900">
@@ -239,10 +240,10 @@ export const EndpointsPage: React.FC = () => {
                       <td className="p-2.5 font-mono text-slate-500">{formatRelativeTime(ep.lastHeartbeat)}</td>
                       <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => navigate(`/endpoints/${ep.id}`)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-[#0F6CBD] hover:bg-blue-50 rounded transition-colors"
+                          onClick={() => setSelectedControlEndpointId(ep.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs"
                         >
-                          Inspect <ChevronRight className="h-3 w-3" />
+                          <SlidersHorizontal className="h-3 w-3" /> Control Panel <ChevronRight className="h-3 w-3" />
                         </button>
                       </td>
                     </tr>
@@ -260,6 +261,11 @@ export const EndpointsPage: React.FC = () => {
 
       <AddEndpointModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <ImportEndpointsModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+      <EndpointControlModal
+        endpointId={selectedControlEndpointId}
+        isOpen={Boolean(selectedControlEndpointId)}
+        onClose={() => setSelectedControlEndpointId(null)}
+      />
     </div>
   );
 };

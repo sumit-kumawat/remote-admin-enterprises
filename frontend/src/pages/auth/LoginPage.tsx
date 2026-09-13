@@ -53,9 +53,9 @@ export const LoginPage: React.FC = () => {
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-white border border-slate-200 shadow-xs p-1 mb-1">
             <img
-              src="https://iconape.com/wp-content/files/yc/116248/png/windows-server-2.png"
-              alt="Windows Server Logo"
-              className="h-9 w-9 object-contain"
+              src="/ra-logo.png"
+              alt="Remote Admin Logo"
+              className="h-10 w-10 object-contain"
             />
           </div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Remote Admin Enterprises</h1>
@@ -92,7 +92,7 @@ export const LoginPage: React.FC = () => {
                 autoFocus
                 {...register('username')}
                 placeholder="Enter username"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all bg-white text-slate-900"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0] focus:border-transparent transition-all bg-white text-slate-900"
               />
             </div>
             {errors.username && <p className="text-xs text-rose-600 mt-1">{errors.username.message}</p>}
@@ -110,7 +110,7 @@ export const LoginPage: React.FC = () => {
                 autoComplete="current-password"
                 {...register('password')}
                 placeholder="Enter password"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:border-transparent transition-all bg-white text-slate-900"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0] focus:border-transparent transition-all bg-white text-slate-900"
               />
             </div>
             {errors.password && <p className="text-xs text-rose-600 mt-1">{errors.password.message}</p>}
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full py-2.5 px-4 bg-[#0F6CBD] hover:bg-[#005a9e] text-white font-semibold text-xs rounded transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] focus:ring-offset-2 disabled:opacity-50"
+            className="w-full py-2.5 px-4 bg-[#2F3EA0] hover:bg-[#233080] text-white font-semibold text-xs rounded transition-colors shadow-xs focus:outline-none focus:ring-2 focus:ring-[#2F3EA0] focus:ring-offset-2 disabled:opacity-50"
           >
             {loginMutation.isPending ? 'Authenticating...' : 'Sign In'}
           </button>

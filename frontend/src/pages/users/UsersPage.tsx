@@ -96,26 +96,34 @@ export const UsersPage: React.FC = () => {
                     {u.lastLogin ? new Date(u.lastLogin).toLocaleString() : 'Never'}
                   </td>
                   <td className="p-2.5 text-right space-x-1">
-                    <button
-                      onClick={() => setSelectedUserForRole(u)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
-                    >
-                      <KeyRound className="h-3 w-3 text-slate-500" /> Change Role
-                    </button>
-                    {u.isActive && (
-                      <button
-                        onClick={() => setSelectedUserForDeactivate(u)}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 border border-amber-300 rounded transition-colors"
-                      >
-                        <UserX className="h-3 w-3 text-amber-600" /> Deactivate
-                      </button>
+                    {u.username.toLowerCase() === 'admin' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-300 rounded">
+                        <Shield className="h-3 w-3 text-[#2F3EA0]" /> Protected System Account
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setSelectedUserForRole(u)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
+                        >
+                          <KeyRound className="h-3 w-3 text-slate-500" /> Change Role
+                        </button>
+                        {u.isActive && (
+                          <button
+                            onClick={() => setSelectedUserForDeactivate(u)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 border border-amber-300 rounded transition-colors"
+                          >
+                            <UserX className="h-3 w-3 text-amber-600" /> Deactivate
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedUserForDelete(u)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 border border-rose-300 rounded transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3 text-rose-600" /> Delete
+                        </button>
+                      </>
                     )}
-                    <button
-                      onClick={() => setSelectedUserForDelete(u)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 border border-rose-300 rounded transition-colors"
-                    >
-                      <Trash2 className="h-3 w-3 text-rose-600" /> Delete
-                    </button>
                   </td>
                 </tr>
               ))}

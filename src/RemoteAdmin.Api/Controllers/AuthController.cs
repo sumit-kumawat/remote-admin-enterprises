@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RemoteAdmin.Contracts.Dtos;
+using RemoteAdmin.Domain.Entities;
 using RemoteAdmin.Domain.Enums;
 using RemoteAdmin.Infrastructure.Data;
 
@@ -75,8 +76,16 @@ public class AuthController : ControllerBase
         var expiryMinutes = _config.GetValue("Jwt:ExpiryMinutes", 480);
 
         var ipAddress = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "127.0.0.1";
-        _logger.LogInformation("User {Username} logged in from {IpAddress}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, ipAddress, user.Username, "Login", "Session", "Success", DateTime.UtcNow);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = user.Username,
+            Action = "Login",
+            Target = "Session",
+            Result = "Success",
+            IpAddress = ipAddress,
+            DetailsJson = "{\"status\": \"Authenticated\"}"
+        });
+        await _db.SaveChangesAsync();
 
         return Ok(new LoginResponse
         {
@@ -136,23 +145,17 @@ public class AuthController : ControllerBase
 
         if (request.NewPassword != request.NewPasswordConfirmation)
         {
-            _logger.LogWarning("Password change failed for user {Username}: Passwords do not match. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                user.Username, actor, "ChangePassword", "UserAccount", "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Passwords do not match" });
         }
 
         if (request.NewPassword.Length < 8)
         {
-            _logger.LogWarning("Password change failed for user {Username}: Password too short. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                user.Username, actor, "ChangePassword", "UserAccount", "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Password must be at least 8 characters" });
         }
 
         var currentHash = HashPassword(request.CurrentPassword, user.Salt);
         if (currentHash != user.PasswordHash)
         {
-            _logger.LogWarning("Password change failed for user {Username}: Current password incorrect. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                user.Username, actor, "ChangePassword", "UserAccount", "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Current password is incorrect" });
         }
 
@@ -162,11 +165,17 @@ public class AuthController : ControllerBase
         user.MustChangePassword = false;
         user.PasswordChangedAt = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;
+
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = actor,
+            Action = "ChangePassword",
+            Target = user.Username,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
         await _db.SaveChangesAsync();
-
-        _logger.LogInformation("User {Username} successfully changed password. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, actor, "ChangePassword", "UserAccount", "Success", DateTime.UtcNow);
-
         return Ok(new ApiResponse { Success = true, Message = "Password changed successfully" });
     }
 
@@ -199,32 +208,16 @@ public class AuthController : ControllerBase
         var actor = User.Identity?.Name ?? "Unknown";
 
         if (request.Password != request.PasswordConfirmation)
-        {
-            _logger.LogWarning("User creation failed by {Actor}: Passwords do not match. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                actor, actor, "CreateUser", request.Username, "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Passwords do not match" });
-        }
 
         if (request.Password.Length < 8)
-        {
-            _logger.LogWarning("User creation failed by {Actor}: Password too short. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                actor, actor, "CreateUser", request.Username, "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Password must be at least 8 characters" });
-        }
 
         if (await _db.Users.AnyAsync(u => u.Username == request.Username))
-        {
-            _logger.LogWarning("User creation failed by {Actor}: Username {Username} already exists. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                actor, request.Username, actor, "CreateUser", request.Username, "Conflict", DateTime.UtcNow);
             return Conflict(new ApiResponse { Success = false, Message = "Username already exists" });
-        }
 
         if (!Enum.TryParse<UserRole>(request.Role, ignoreCase: true, out var role))
-        {
-            _logger.LogWarning("User creation failed by {Actor}: Invalid role {Role}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                actor, request.Role, actor, "CreateUser", request.Username, "Failed", DateTime.UtcNow);
             return BadRequest(new ApiResponse { Success = false, Message = "Invalid role" });
-        }
 
         var salt = GenerateSalt();
         var user = new Domain.Entities.User
@@ -240,10 +233,17 @@ public class AuthController : ControllerBase
         };
 
         _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = actor,
+            Action = "CreateUser",
+            Target = user.Username,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"role\": \"{role}\", \"email\": \"{user.Email}\"}}",
+        });
 
-        _logger.LogInformation("User {Username} created by {Actor}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, actor, actor, "CreateUser", user.Username, "Success", DateTime.UtcNow);
+        await _db.SaveChangesAsync();
         return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' created" });
     }
 
@@ -261,17 +261,26 @@ public class AuthController : ControllerBase
             var activeSuperAdmins = await _db.Users.CountAsync(u => u.Role == UserRole.SuperAdmin && u.IsActive);
             if (activeSuperAdmins <= 1)
             {
-                _logger.LogWarning("Attempt to delete last active SuperAdmin {Target} by {Actor} rejected. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                    user.Username, actor, actor, "DeleteUser", user.Username, "Rejected", DateTime.UtcNow);
                 return BadRequest(new ApiResponse { Success = false, Message = "Cannot delete the last remaining active SuperAdmin account" });
             }
         }
 
-        _db.Users.Remove(user);
-        await _db.SaveChangesAsync();
+        if (user.Username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ApiResponse { Success = false, Message = "The default 'admin' user account cannot be deleted" });
+        }
 
-        _logger.LogInformation("User {Username} deleted by {Actor}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, actor, actor, "DeleteUser", user.Username, "Success", DateTime.UtcNow);
+        _db.Users.Remove(user);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = actor,
+            Action = "DeleteUser",
+            Target = user.Username,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
         return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' deleted" });
     }
 
@@ -292,18 +301,29 @@ public class AuthController : ControllerBase
             var activeSuperAdmins = await _db.Users.CountAsync(u => u.Role == UserRole.SuperAdmin && u.IsActive);
             if (activeSuperAdmins <= 1)
             {
-                _logger.LogWarning("Attempt to demote last active SuperAdmin {Target} by {Actor} rejected. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                    user.Username, actor, actor, "UpdateUserRole", user.Username, "Rejected", DateTime.UtcNow);
                 return BadRequest(new ApiResponse { Success = false, Message = "Cannot change the role of the last remaining active SuperAdmin account" });
             }
         }
 
+        if (user.Username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ApiResponse { Success = false, Message = "The role of default 'admin' user account cannot be changed" });
+        }
+
         user.Role = newRole;
         user.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
 
-        _logger.LogInformation("User {Username} role changed to {Role} by {Actor}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, newRole, actor, actor, "UpdateUserRole", user.Username, "Success", DateTime.UtcNow);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = actor,
+            Action = "UpdateUserRole",
+            Target = user.Username,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = $"{{\"newRole\": \"{newRole}\"}}",
+        });
+
+        await _db.SaveChangesAsync();
         return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' role updated to {newRole}" });
     }
 
@@ -321,18 +341,28 @@ public class AuthController : ControllerBase
             var activeSuperAdmins = await _db.Users.CountAsync(u => u.Role == UserRole.SuperAdmin && u.IsActive);
             if (activeSuperAdmins <= 1)
             {
-                _logger.LogWarning("Attempt to deactivate last active SuperAdmin {Target} by {Actor} rejected. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-                    user.Username, actor, actor, "DeactivateUser", user.Username, "Rejected", DateTime.UtcNow);
                 return BadRequest(new ApiResponse { Success = false, Message = "Cannot deactivate the last remaining active SuperAdmin account" });
             }
         }
 
+        if (user.Username.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ApiResponse { Success = false, Message = "The default 'admin' user account cannot be deactivated" });
+        }
+
         user.IsActive = false;
         user.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
 
-        _logger.LogInformation("User {Username} deactivated by {Actor}. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",
-            user.Username, actor, actor, "DeactivateUser", user.Username, "Success", DateTime.UtcNow);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = actor,
+            Action = "DeactivateUser",
+            Target = user.Username,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+        });
+
+        await _db.SaveChangesAsync();
         return Ok(new ApiResponse { Success = true, Message = $"User '{user.Username}' deactivated" });
     }
 

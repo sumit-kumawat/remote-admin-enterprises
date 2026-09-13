@@ -39,4 +39,29 @@ export const endpointsApi = {
     const response = await apiClient.post<ApiResponse>('/api/Endpoints/create-local-admin', { endpointIds });
     return response.data;
   },
+
+  resetUserPassword: async (endpointId: string, targetUsername: string, newPassword: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/users/reset-password`, { targetUsername, newPassword });
+    return response.data;
+  },
+
+  updateUserGroups: async (endpointId: string, targetUsername: string, groups: string[]): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/users/update-groups`, { targetUsername, groups });
+    return response.data;
+  },
+
+  installSoftware: async (endpointId: string, packageName: string, version?: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/software/install`, { packageName, version });
+    return response.data;
+  },
+
+  uninstallSoftware: async (endpointId: string, softwareName: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/software/uninstall`, { softwareName });
+    return response.data;
+  },
+
+  powerControl: async (endpointId: string, action: string): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>(`/api/Endpoints/${endpointId}/power`, { action });
+    return response.data;
+  },
 };
