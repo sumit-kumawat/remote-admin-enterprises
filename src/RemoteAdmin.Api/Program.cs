@@ -159,9 +159,14 @@ app.MapFallbackToFile("index.html");
         await db.Database.MigrateAsync();
     }
 
-    if (await db.Users.AnyAsync(u => u.Role == UserRole.SuperAdmin))
+    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Role == UserRole.SuperAdmin);
+    if (adminUser != null)
     {
-        Log.Information("SuperAdmin already exists; skipping seed.");
+        adminUser.FailedLoginAttempts = 0;
+        adminUser.LockedUntil = null;
+        adminUser.IsActive = true;
+        await db.SaveChangesAsync();
+        Log.Information("SuperAdmin account unlocked and active.");
     }
     else
     {

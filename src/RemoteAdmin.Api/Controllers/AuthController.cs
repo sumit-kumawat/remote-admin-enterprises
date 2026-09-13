@@ -31,7 +31,8 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+        var usernameClean = request.Username?.Trim() ?? "";
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == usernameClean.ToLower());
         if (user == null || !user.IsActive)
         {
             _logger.LogWarning("Login failed for username {Username}: user not found or inactive. (Actor: {Actor}, Action: {Action}, Target: {Target}, Result: {Result}, Timestamp: {Timestamp})",

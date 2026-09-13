@@ -61,11 +61,16 @@ export const LoginPage: React.FC = () => {
         {/* Login Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 text-xs">
           {loginMutation.isError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 text-xs flex items-start gap-2 animate-in fade-in">
-              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold block">Authentication Failed</span>
-                <span>{(loginMutation.error as any)?.response?.data?.message || 'Invalid username or password'}</span>
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-800 text-xs space-y-1 animate-in fade-in">
+              <div className="flex items-center gap-1.5 font-semibold text-rose-900">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+                <span>Authentication Failed</span>
+              </div>
+              <p className="text-rose-700">
+                {(loginMutation.error as any)?.response?.data?.message || 'Invalid username or password.'}
+              </p>
+              <div className="pt-1 border-t border-rose-200 text-[11px] text-slate-600 font-mono">
+                Default Credentials: <span className="font-bold text-slate-800">admin</span> / <span className="font-bold text-slate-800">Adm1n@123</span>
               </div>
             </div>
           )}
