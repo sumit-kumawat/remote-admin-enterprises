@@ -8,6 +8,7 @@ import { ConfirmModal } from '../common/ConfirmModal';
 import { Modal } from '../common/Modal';
 import { DeviceIcon } from '../common/DeviceIcon';
 import { toast } from '../../store/useToastStore';
+import type { EndpointDetailDto } from '../../types/api';
 import {
   X,
   Monitor,
@@ -68,6 +69,9 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
 
   const { data: response, isLoading, isError, refetch } = useEndpointDetail(endpointId || '');
 
+  const rawData: any = response;
+  const endpoint: EndpointDetailDto | undefined = rawData?.data ?? (rawData?.id ? rawData : undefined);
+
   useEffect(() => {
     if (isOpen) {
       fetchCredentials()
@@ -77,19 +81,18 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (response?.data) {
-      setSelectedAuthMode(response.data.authMode || 'Inherit');
-      setSelectedProfileId(response.data.credentialProfileId || '');
+    if (endpoint) {
+      setSelectedAuthMode(endpoint.authMode || 'Inherit');
+      setSelectedProfileId(endpoint.credentialProfileId || '');
     }
-  }, [response]);
+  }, [endpoint]);
 
   if (!isOpen || !endpointId) return null;
 
-  const endpoint = response?.data;
   const hw = endpoint?.hardware;
   const nics = endpoint?.networkInterfaces || [];
   const drives = endpoint?.drives || [];
-  const softwareList = (endpoint?.software || []).filter((s) =>
+  const softwareList = (endpoint?.software || []).filter((s: any) =>
     (s?.softwareName || '').toLowerCase().includes((softwareSearch || '').toLowerCase())
   );
   const localAccounts = endpoint?.localAccounts || [];
@@ -382,7 +385,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {localAccounts.map((acc, idx) => (
+                    {localAccounts.map((acc: any, idx: number) => (
                       <tr key={idx}>
                         <td className="p-2 font-bold font-mono">{acc.username}</td>
                         <td className="p-2">{acc.fullName || '—'}</td>
@@ -411,7 +414,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {securitySoftware.map((sec, idx) => (
+                    {securitySoftware.map((sec: any, idx: number) => (
                       <tr key={idx}>
                         <td className="p-2 font-semibold">{sec.productName}</td>
                         <td className="p-2">{sec.vendor || 'Microsoft'}</td>
@@ -448,7 +451,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {nics.map((nic, idx) => (
+                  {nics.map((nic: any, idx: number) => (
                     <tr key={idx}>
                       <td className="p-2 font-medium">{nic.adapterName}</td>
                       <td className="p-2 font-mono">{nic.ipv4Address || '—'}</td>
@@ -468,7 +471,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {softwareList.map((sw, idx) => (
+                  {softwareList.map((sw: any, idx: number) => (
                     <tr key={idx}>
                       <td className="p-2 font-medium">{sw.softwareName}</td>
                       <td className="p-2 font-mono">{sw.version || '—'}</td>
@@ -480,7 +483,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
 
             {activeTab === 'drives' && (
               <div className="space-y-3">
-                {drives.map((d, idx) => (
+                {drives.map((d: any, idx: number) => (
                   <div key={idx} className="p-3 border rounded bg-slate-50">
                     <div className="flex justify-between font-bold">
                       <span>Drive {d.driveLetter} ({d.fileSystem})</span>

@@ -59,6 +59,10 @@ export const discoveryApi = {
     return resData?.data ?? resData;
   },
 
+  bulkPromoteHosts: async (hostIds: string[]): Promise<PromoteHostResult[]> => {
+    return await Promise.all(hostIds.map((id) => discoveryApi.promoteHost(id)));
+  },
+
   exportScanUrl: (id: string, format: 'csv' | 'json' = 'csv'): string => {
     return `/api/Discovery/scans/${id}/export?format=${format}`;
   },

@@ -16,7 +16,7 @@ import type { DiscoveryHostDto } from '../../types/discovery';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { DeviceIcon } from '../../components/common/DeviceIcon';
-import { Modal } from '../../components/common/Modal';
+import { toast } from '../../store/useToastStore';
 import {
   ArrowLeft,
   Pause,
@@ -25,11 +25,13 @@ import {
   Download,
   Search,
   AlertTriangle,
-  Zap,
   ShieldCheck,
-  Plus,
   X,
   Network,
+  CheckSquare,
+  Square,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export const ScanDetailPage: React.FC = () => {
@@ -41,12 +43,17 @@ export const ScanDetailPage: React.FC = () => {
 
   // Queries & Mutations
   const { data: scan, isLoading: isScanLoading } = useScan(id);
-  const { data: hosts = [], isLoading: isHostsLoading } = useScanHosts(id);
+  const { data: hosts = [], isLoading: isHostsLoading, refetch: refetchHosts } = useScanHosts(id);
 
   const pauseMutation = usePauseScan();
   const resumeMutation = useResumeScan();
   const cancelMutation = useCancelScan();
   const promoteMutation = usePromoteHost();
+
+  // Selection & Clipboard
+  const [selectedHostIds, setSelectedHostIds] = useState<string[]>([]);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isBulkPromoting, setIsBulkPromoting] = useState(false);
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,10 +64,6 @@ export const ScanDetailPage: React.FC = () => {
 
   // Selected Host for Side Drawer
   const [selectedHost, setSelectedHost] = useState<DiscoveryHostDto | null>(null);
-
-  // Bulk Promote Modal
-  const [showBulkPromoteModal, setShowBulkPromoteModal] = useState(false);
-  const [bulkPromoteStatus, setBulkPromoteStatus] = useState<string | null>(null);
 
   // Unique Vendors list
   const uniqueVendors = useMemo(() => {
@@ -113,6 +116,24 @@ export const ScanDetailPage: React.FC = () => {
     });
   }, [hosts, statusFilter, typeFilter, hasOpenPortsFilter, vendorFilter, searchQuery]);
 
+  // Selection state
+  const isAllSelected = filteredHosts.length > 0 && selectedHostIds.length === filteredHosts.length;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedHostIds([]);
+    } else {
+      setSelectedHostIds(filteredHosts.map((h) => h.id));
+    }
+  };
+
+  const toggleSelectHost = (hostId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedHostIds((prev) =>
+      prev.includes(hostId) ? prev.filter((id) => id !== hostId) : [...prev, hostId]
+    );
+  };
+
   // Virtualizer setup for 10k+ rows
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualList({
@@ -129,28 +150,58 @@ export const ScanDetailPage: React.FC = () => {
 
   const handlePromoteSingle = (host: DiscoveryHostDto, e: React.MouseEvent) => {
     e.stopPropagation();
-    promoteMutation.mutate(host.id);
+    promoteMutation.mutate(host.id, {
+      onSuccess: () => {
+        toast.success('Host Promoted', `Discovered host ${host.ipAddress} promoted to managed endpoint.`);
+        refetchHosts();
+      },
+      onError: (err: any) => {
+        toast.error('Promotion Failed', err?.response?.data?.message || 'Failed to promote host');
+      },
+    });
   };
 
-  const handleBulkPromote = async () => {
-    const promotable = filteredHosts.filter((h) => h.status === 'Up' && !h.isPromoted);
-    setBulkPromoteStatus(`Promoting ${promotable.length} discovered hosts into managed endpoints...`);
-
-    let count = 0;
-    for (const host of promotable) {
-      try {
-        await promoteMutation.mutateAsync(host.id);
-        count++;
-      } catch (err) {
-        console.error(`Failed to promote host ${host.ipAddress}`, err);
-      }
+  const handleBulkPromoteSelected = async () => {
+    if (selectedHostIds.length === 0) return;
+    setIsBulkPromoting(true);
+    try {
+      await discoveryApi.bulkPromoteHosts(selectedHostIds);
+      toast.success('Bulk Promotion Complete', `${selectedHostIds.length} hosts promoted to managed endpoints.`);
+      setSelectedHostIds([]);
+      refetchHosts();
+    } catch (err: any) {
+      toast.error('Bulk Promotion Failed', err?.response?.data?.message || 'Some hosts failed to promote');
+    } finally {
+      setIsBulkPromoting(false);
     }
+  };
 
-    setBulkPromoteStatus(`Successfully promoted ${count} of ${promotable.length} hosts!`);
-    setTimeout(() => {
-      setShowBulkPromoteModal(false);
-      setBulkPromoteStatus(null);
-    }, 1500);
+  const handleExportSelected = () => {
+    const selectedHostsData = filteredHosts.filter((h) => selectedHostIds.includes(h.id));
+    if (selectedHostsData.length === 0) return;
+
+    let csvContent = 'IP Address,Hostname,MAC Address,Vendor,TTL,OS Guess,Status,Confidence\n';
+    selectedHostsData.forEach((h) => {
+      csvContent += `"${h.ipAddress}","${h.hostname || ''}","${h.macAddress || ''}","${h.vendor || ''}","${h.ttl || ''}","${h.osGuess || ''}","${h.status}","${h.confidence}"\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `selected-discovered-hosts-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopyToClipboard = (text: string, label: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(`${label}-${text}`);
+    toast.success('Copied', `${label}: ${text}`);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   if (isScanLoading) {
@@ -171,7 +222,7 @@ export const ScanDetailPage: React.FC = () => {
           <h2 className="text-sm font-bold text-slate-800">Scan Not Found</h2>
           <button
             onClick={() => navigate('/discovery/scans')}
-            className="mt-3 px-3 py-1.5 text-xs bg-[#2F3EA0] text-white rounded font-medium"
+            className="mt-3 px-3 py-1.5 text-xs bg-[#2F3EA0] text-white rounded font-medium cursor-pointer"
           >
             Back to Scan History
           </button>
@@ -190,7 +241,7 @@ export const ScanDetailPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/discovery/scans')}
-              className="p-1.5 text-slate-600 hover:text-slate-900 border border-slate-300 rounded bg-slate-50 hover:bg-slate-100"
+              className="p-1.5 text-slate-600 hover:text-slate-900 border border-slate-300 rounded bg-slate-50 hover:bg-slate-100 cursor-pointer"
               title="Back to Scans"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -216,7 +267,7 @@ export const ScanDetailPage: React.FC = () => {
             {scan.status === 'Running' && (
               <button
                 onClick={() => pauseMutation.mutate(scan.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-amber-800 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded cursor-pointer"
               >
                 <Pause className="h-3.5 w-3.5" /> Pause
               </button>
@@ -224,7 +275,7 @@ export const ScanDetailPage: React.FC = () => {
             {scan.status === 'Paused' && (
               <button
                 onClick={() => resumeMutation.mutate(scan.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded cursor-pointer"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Resume
               </button>
@@ -232,7 +283,7 @@ export const ScanDetailPage: React.FC = () => {
             {(scan.status === 'Running' || scan.status === 'Queued' || scan.status === 'Paused') && (
               <button
                 onClick={() => cancelMutation.mutate(scan.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-800 bg-red-100 hover:bg-red-200 border border-red-300 rounded"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-800 bg-red-100 hover:bg-red-200 border border-red-300 rounded cursor-pointer"
               >
                 <XCircle className="h-3.5 w-3.5" /> Cancel
               </button>
@@ -242,13 +293,13 @@ export const ScanDetailPage: React.FC = () => {
 
             <button
               onClick={() => handleExport('csv')}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" /> Export CSV
             </button>
             <button
               onClick={() => handleExport('json')}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded cursor-pointer"
             >
               <Download className="h-3.5 w-3.5" /> Export JSON
             </button>
@@ -278,7 +329,7 @@ export const ScanDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Toolbar & Filter Bar */}
+      {/* Toolbar & Bulk Selection Bar */}
       <div className="bg-white border border-slate-200 rounded-md p-3 space-y-3 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Search Box */}
@@ -288,14 +339,40 @@ export const ScanDetailPage: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search IP, Hostname, MAC address, Vendor..."
+              placeholder="Filter by IP, Hostname, MAC, Vendor, OS..."
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded font-sans focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
 
+          {/* Bulk Action Controls */}
+          {selectedHostIds.length > 0 && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded text-blue-900 font-semibold animate-in fade-in">
+              <span className="text-xs">{selectedHostIds.length} Selected</span>
+              <button
+                onClick={handleBulkPromoteSelected}
+                disabled={isBulkPromoting}
+                className="px-2.5 py-1 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {isBulkPromoting ? 'Promoting...' : `Promote Selected (${selectedHostIds.length})`}
+              </button>
+              <button
+                onClick={handleExportSelected}
+                className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5 text-[#2F3EA0]" /> Export CSV
+              </button>
+              <button
+                onClick={() => setSelectedHostIds([])}
+                className="text-xs text-slate-500 hover:text-slate-800 ml-1 cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* Filter Dropdowns */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -307,19 +384,17 @@ export const ScanDetailPage: React.FC = () => {
               <option value="Filtered">Filtered ({hosts.filter((h) => h.status === 'Filtered').length})</option>
             </select>
 
-            {/* Device Type Filter */}
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as any)}
               className="px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             >
-              <option value="All">All Device Types</option>
+              <option value="All">All OS Types</option>
               <option value="Windows">Windows Hosts</option>
               <option value="Linux">Linux / Unix</option>
               <option value="Network">Network Gear</option>
             </select>
 
-            {/* Vendor Filter */}
             {uniqueVendors.length > 0 && (
               <select
                 value={vendorFilter}
@@ -335,7 +410,6 @@ export const ScanDetailPage: React.FC = () => {
               </select>
             )}
 
-            {/* Checkbox: Has Open Ports */}
             <label className="flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer border border-slate-300 rounded px-2 py-1.5 bg-slate-50 hover:bg-slate-100">
               <input
                 type="checkbox"
@@ -345,27 +419,18 @@ export const ScanDetailPage: React.FC = () => {
               />
               <span>Has Open Ports</span>
             </label>
-
-            {/* Bulk Promote Action Button */}
-            <button
-              onClick={() => setShowBulkPromoteModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Promote Matching ({filteredHosts.filter((h) => h.status === 'Up' && !h.isPromoted).length})
-            </button>
           </div>
         </div>
       </div>
 
-      {/* Results Table (Virtualized handling 10,000+ rows) */}
+      {/* Results Table (Matching Endpoints Table Style with Single-Word Headers) */}
       <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-slate-800 flex justify-between items-center">
+        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 font-semibold text-slate-800 flex justify-between items-center text-xs">
           <span>
-            Discovered Hosts ({filteredHosts.length} of {hosts.length})
+            Discovered Hosts ({filteredHosts.length} of {hosts.length}) {selectedHostIds.length > 0 && `— ${selectedHostIds.length} Selected`}
           </span>
           <span className="text-[11px] text-slate-500 font-normal">
-            Click any row to open Host Metadata & Banner Details drawer
+            Click row for details • Select rows for bulk action
           </span>
         </div>
 
@@ -388,24 +453,34 @@ export const ScanDetailPage: React.FC = () => {
                 position: 'relative',
               }}
             >
-              {/* Table Header */}
-              <div className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 flex text-left text-xs uppercase tracking-wider">
-                <div className="p-2.5 w-32 shrink-0">IP Address</div>
-                <div className="p-2.5 w-44 shrink-0">Hostname / Reverse DNS</div>
-                <div className="p-2.5 w-36 shrink-0">MAC Address</div>
-                <div className="p-2.5 w-36 shrink-0">IEEE Vendor</div>
-                <div className="p-2.5 w-16 shrink-0 text-center">TTL</div>
-                <div className="p-2.5 w-36 shrink-0">OS Guess</div>
-                <div className="p-2.5 w-48 shrink-0">Open Ports</div>
-                <div className="p-2.5 w-20 shrink-0 text-center">Conf.</div>
-                <div className="p-2.5 w-24 shrink-0 text-center">Status</div>
-                <div className="p-2.5 w-32 shrink-0">First Seen</div>
-                <div className="p-2.5 w-28 shrink-0 text-center">Action</div>
+              {/* Single-Word Column Titles matching Endpoints style */}
+              <div className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200 font-semibold text-slate-700 flex text-left text-xs">
+                <div className="p-2.5 w-10 shrink-0 text-center">
+                  <button onClick={toggleSelectAll} className="text-slate-500 hover:text-slate-900 cursor-pointer">
+                    {isAllSelected ? (
+                      <CheckSquare className="h-4 w-4 text-[#2F3EA0]" />
+                    ) : (
+                      <Square className="h-4 w-4 text-slate-400" />
+                    )}
+                  </button>
+                </div>
+                <div className="p-2.5 w-32 shrink-0">IP</div>
+                <div className="p-2.5 w-44 shrink-0">Host</div>
+                <div className="p-2.5 w-36 shrink-0">MAC</div>
+                <div className="p-2.5 w-36 shrink-0">Vendor</div>
+                <div className="p-2.5 w-14 shrink-0 text-center">TTL</div>
+                <div className="p-2.5 w-36 shrink-0">OS</div>
+                <div className="p-2.5 w-44 shrink-0">Ports</div>
+                <div className="p-2.5 w-16 shrink-0 text-center">Conf</div>
+                <div className="p-2.5 w-20 shrink-0 text-center">Status</div>
+                <div className="p-2.5 w-24 shrink-0">Seen</div>
+                <div className="p-2.5 w-28 shrink-0 text-right">Action</div>
               </div>
 
-              {/* Table Body Rows */}
+              {/* Table Rows */}
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const host = filteredHosts[virtualRow.index];
+                const isSelected = selectedHostIds.includes(host.id);
                 const isFlashed = flashedHostIds.has(host.id);
 
                 let openPorts: number[] = [];
@@ -425,49 +500,96 @@ export const ScanDetailPage: React.FC = () => {
                       height: `${virtualRow.size}px`,
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
-                    className={`flex items-center text-xs border-b border-slate-100 cursor-pointer transition-colors hover:bg-blue-50/60 ${
-                      isFlashed ? 'bg-amber-100 animate-pulse font-bold' : 'bg-white'
+                    className={`flex items-center text-xs border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50 ${
+                      isSelected ? 'bg-blue-50/60 font-medium' : isFlashed ? 'bg-amber-100 animate-pulse font-bold' : 'bg-white'
                     }`}
                   >
-                    <div className="p-2.5 w-32 shrink-0 font-mono font-bold text-slate-900">{host.ipAddress}</div>
+                    {/* Checkbox Column */}
+                    <div className="p-2.5 w-10 shrink-0 text-center" onClick={(e) => toggleSelectHost(host.id, e)}>
+                      <button className="text-slate-500 hover:text-slate-900 cursor-pointer">
+                        {isSelected ? (
+                          <CheckSquare className="h-4 w-4 text-[#2F3EA0]" />
+                        ) : (
+                          <Square className="h-4 w-4 text-slate-300" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* IP Column */}
+                    <div className="p-2.5 w-32 shrink-0 font-mono font-bold text-slate-900">
+                      <div className="flex items-center gap-1">
+                        <span>{host.ipAddress}</span>
+                        <button
+                          onClick={(e) => handleCopyToClipboard(host.ipAddress, 'IP', e)}
+                          title="Copy IP"
+                          className="p-0.5 text-slate-400 hover:text-slate-700 rounded transition-colors"
+                        >
+                          {copiedField === `IP-${host.ipAddress}` ? (
+                            <Check className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Host Column */}
                     <div className="p-2.5 w-44 shrink-0 truncate font-semibold text-slate-800">
                       <div className="flex items-center gap-1.5">
                         <DeviceIcon osName={host.osGuess || undefined} size={14} />
                         <span className="truncate">{host.hostname || '—'}</span>
                       </div>
                     </div>
+
+                    {/* MAC Column */}
                     <div className="p-2.5 w-36 shrink-0 font-mono text-slate-600 truncate">{host.macAddress || '—'}</div>
+
+                    {/* Vendor Column */}
                     <div className="p-2.5 w-36 shrink-0 text-slate-700 truncate">{host.vendor || 'Unknown'}</div>
-                    <div className="p-2.5 w-16 shrink-0 font-mono text-center text-slate-600">{host.ttl ?? '—'}</div>
+
+                    {/* TTL Column */}
+                    <div className="p-2.5 w-14 shrink-0 font-mono text-center text-slate-600">{host.ttl ?? '—'}</div>
+
+                    {/* OS Column */}
                     <div className="p-2.5 w-36 shrink-0 text-slate-800 font-medium truncate">
                       {host.osGuess || 'Unknown OS'}
                     </div>
-                    <div className="p-2.5 w-48 shrink-0 font-mono text-[11px] truncate">
+
+                    {/* Ports Column */}
+                    <div className="p-2.5 w-44 shrink-0 font-mono text-[11px] truncate">
                       {openPorts.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {openPorts.slice(0, 4).map((p) => (
+                          {openPorts.slice(0, 3).map((p) => (
                             <span key={p} className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 font-bold text-[10px]">
                               {p}
                             </span>
                           ))}
-                          {openPorts.length > 4 && (
-                            <span className="text-[10px] text-slate-400 font-sans">+{openPorts.length - 4}</span>
+                          {openPorts.length > 3 && (
+                            <span className="text-[10px] text-slate-400 font-sans">+{openPorts.length - 3}</span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400">None detected</span>
+                        <span className="text-slate-400">None</span>
                       )}
                     </div>
-                    <div className="p-2.5 w-20 shrink-0 text-center font-bold text-slate-700">
+
+                    {/* Conf Column */}
+                    <div className="p-2.5 w-16 shrink-0 text-center font-bold text-slate-700">
                       {host.confidence}%
                     </div>
-                    <div className="p-2.5 w-24 shrink-0 text-center">
+
+                    {/* Status Column */}
+                    <div className="p-2.5 w-20 shrink-0 text-center">
                       <StatusBadge status={host.status === 'Up' ? 'Online' : host.status === 'Down' ? 'Offline' : 'Warning'} size="sm" />
                     </div>
-                    <div className="p-2.5 w-32 shrink-0 text-slate-500 font-mono text-[11px]">
+
+                    {/* Seen Column */}
+                    <div className="p-2.5 w-24 shrink-0 text-slate-500 font-mono text-[11px]">
                       {new Date(host.firstSeenAt).toLocaleTimeString()}
                     </div>
-                    <div className="p-2.5 w-28 shrink-0 text-center">
+
+                    {/* Action Column */}
+                    <div className="p-2.5 w-28 shrink-0 text-right" onClick={(e) => e.stopPropagation()}>
                       {host.isPromoted ? (
                         <span className="inline-flex items-center gap-1 text-emerald-700 font-bold text-[11px]">
                           <ShieldCheck className="h-3.5 w-3.5" /> Promoted
@@ -476,7 +598,7 @@ export const ScanDetailPage: React.FC = () => {
                         <button
                           onClick={(e) => handlePromoteSingle(host, e)}
                           disabled={promoteMutation.isPending || host.status !== 'Up'}
-                          className="px-2 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded disabled:opacity-40"
+                          className="px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs cursor-pointer disabled:opacity-40"
                         >
                           Promote
                         </button>
@@ -499,127 +621,110 @@ export const ScanDetailPage: React.FC = () => {
               <div>
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <DeviceIcon osName={selectedHost.osGuess || undefined} size={18} />
-                  Host Detail: {selectedHost.ipAddress}
+                  {selectedHost.ipAddress}
+                  {selectedHost.hostname && <span className="text-slate-500 font-normal">({selectedHost.hostname})</span>}
                 </h2>
-                <p className="text-[11px] text-slate-500">{selectedHost.hostname || 'No reverse DNS record'}</p>
+                <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                  MAC: {selectedHost.macAddress || 'N/A'} | Vendor: {selectedHost.vendor || 'Unknown'}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedHost(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-200"
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Drawer Content */}
-            <div className="p-4 flex-1 overflow-y-auto space-y-4 text-xs">
-              {/* Status & Promote Bar */}
-              <div className="p-3 bg-slate-100 rounded-md border border-slate-200 flex items-center justify-between">
+            {/* Drawer Body */}
+            <div className="p-4 overflow-y-auto flex-1 space-y-4 text-xs">
+              {/* Properties Grid */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 border border-slate-200 rounded">
                 <div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase">Scan Classification</div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <StatusBadge status={selectedHost.status === 'Up' ? 'Online' : 'Offline'} size="sm" />
-                    <span className="font-bold text-slate-700">Confidence: {selectedHost.confidence}%</span>
+                  <span className="text-slate-500 block text-[10px]">OS Guess</span>
+                  <span className="font-semibold text-slate-800">{selectedHost.osGuess || 'Unknown'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">TTL Value</span>
+                  <span className="font-mono font-semibold text-slate-800">{selectedHost.ttl ?? 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Confidence</span>
+                  <span className="font-bold text-slate-900">{selectedHost.confidence}%</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-[10px]">Status</span>
+                  <StatusBadge status={selectedHost.status === 'Up' ? 'Online' : 'Offline'} size="sm" />
+                </div>
+              </div>
+
+              {/* Open Ports List */}
+              {(() => {
+                let drawerPorts: number[] = [];
+                try {
+                  if (selectedHost.openPortsJson) drawerPorts = JSON.parse(selectedHost.openPortsJson);
+                } catch {}
+
+                let drawerBanners: Record<string, string> = {};
+                try {
+                  if (selectedHost.bannersJson) drawerBanners = JSON.parse(selectedHost.bannersJson);
+                } catch {}
+
+                return (
+                  <div>
+                    <h3 className="font-bold text-slate-800 mb-2">Discovered Open Ports & Services</h3>
+                    {drawerPorts.length > 0 ? (
+                      <div className="space-y-2">
+                        {drawerPorts.map((port: number) => {
+                          const banner = drawerBanners[port] || drawerBanners[String(port)];
+                          return (
+                            <div key={port} className="p-2 border border-slate-200 rounded bg-slate-50">
+                              <div className="flex justify-between items-center font-mono text-xs">
+                                <span className="font-bold text-[#2F3EA0]">Port {port}</span>
+                                <span className="text-[10px] text-slate-500">TCP</span>
+                              </div>
+                              {banner && (
+                                <div className="mt-1 text-[11px] font-mono text-slate-600 bg-white p-1.5 rounded border border-slate-200 break-all select-text">
+                                  {banner}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-center text-slate-500 italic border border-slate-200 rounded bg-slate-50">
+                        No open TCP ports detected during probe.
+                      </div>
+                    )}
                   </div>
-                </div>
+                );
+              })()}
+            </div>
 
-                {selectedHost.isPromoted ? (
-                  <div className="px-3 py-1 bg-emerald-100 border border-emerald-300 rounded text-emerald-800 font-bold flex items-center gap-1">
-                    <ShieldCheck className="h-4 w-4" /> Promoted Managed Endpoint
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => promoteMutation.mutate(selectedHost.id)}
-                    disabled={promoteMutation.isPending || selectedHost.status !== 'Up'}
-                    className="px-3 py-1.5 text-xs font-bold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs disabled:opacity-50"
-                  >
-                    Promote to Endpoint
-                  </button>
-                )}
-              </div>
+            {/* Drawer Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+              <button
+                onClick={() => setSelectedHost(null)}
+                className="px-3 py-1.5 text-xs text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded font-medium cursor-pointer"
+              >
+                Close
+              </button>
 
-              {/* Specs Grid */}
-              <div className="grid grid-cols-2 gap-3 bg-white p-3 border border-slate-200 rounded">
-                <div>
-                  <span className="text-[10px] text-slate-500 block">IP Address</span>
-                  <span className="font-mono font-bold text-slate-800">{selectedHost.ipAddress}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 block">MAC Address</span>
-                  <span className="font-mono text-slate-800">{selectedHost.macAddress || '—'}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 block">IEEE Vendor</span>
-                  <span className="font-semibold text-slate-800">{selectedHost.vendor || 'Unknown'}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-500 block">TTL Response</span>
-                  <span className="font-mono text-slate-800">{selectedHost.ttl ?? '—'}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-[10px] text-slate-500 block">OS Guess (Heuristic)</span>
-                  <span className="font-semibold text-[#2F3EA0]">{selectedHost.osGuess || 'Unknown'}</span>
-                </div>
-              </div>
-
-              {/* Open Ports & Raw Banners */}
-              <div className="space-y-2">
-                <h3 className="font-bold text-slate-800 text-xs">Captured TCP Port Banners</h3>
-                <div className="p-3 bg-slate-900 text-slate-200 rounded font-mono text-[11px] overflow-x-auto max-h-48">
-                  {selectedHost.bannersJson ? (
-                    <pre className="whitespace-pre-wrap">{selectedHost.bannersJson}</pre>
-                  ) : (
-                    <span className="text-slate-500 italic">No TCP banner data captured during scan.</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Enrichment Info */}
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-[#2F3EA0]" /> Live Host Enrichment Summary
-                </div>
-                <p className="text-[11px] text-blue-800">
-                  Host was probed using multi-layer ARP/ICMP ping followed by TCP connect banners on common ports.
-                </p>
-              </div>
+              {!selectedHost.isPromoted && (
+                <button
+                  onClick={(e) => {
+                    handlePromoteSingle(selectedHost, e);
+                    setSelectedHost(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="h-4 w-4" /> Promote to Endpoint
+                </button>
+              )}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Bulk Promote Confirm Modal */}
-      {showBulkPromoteModal && (
-        <Modal isOpen={showBulkPromoteModal} onClose={() => setShowBulkPromoteModal(false)} title="Bulk Promote Discovered Hosts">
-          <div className="space-y-4">
-            <p className="text-xs text-slate-700">
-              Are you sure you want to promote all <strong>{filteredHosts.filter((h) => h.status === 'Up' && !h.isPromoted).length}</strong> matching
-              active hosts into managed inventory endpoints?
-            </p>
-
-            {bulkPromoteStatus && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs font-semibold">
-                {bulkPromoteStatus}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowBulkPromoteModal(false)}
-                className="px-3 py-1.5 border border-slate-300 rounded text-xs font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBulkPromote}
-                disabled={!!bulkPromoteStatus}
-                className="px-4 py-1.5 bg-[#2F3EA0] hover:bg-[#233080] text-white rounded text-xs font-bold disabled:opacity-50"
-              >
-                Confirm Bulk Promote
-              </button>
-            </div>
-          </div>
-        </Modal>
       )}
     </div>
   );
