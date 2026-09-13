@@ -24,10 +24,16 @@ public class MustChangePasswordMiddleware
 
     public async Task InvokeAsync(HttpContext context, AppDbContext db)
     {
+        var path = context.Request.Path.Value ?? string.Empty;
+        if (path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context);
+            return;
+        }
+
         if (context.User.Identity?.IsAuthenticated == true)
         {
-            var path = context.Request.Path.Value ?? string.Empty;
-
             if (!ExemptPaths.Contains(path))
             {
                 var userIdStr = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

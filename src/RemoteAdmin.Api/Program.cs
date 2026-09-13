@@ -153,6 +153,7 @@ app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapGet("/api", () => Results.Redirect("/swagger"));
 
 app.MapFallbackToFile("index.html");
@@ -164,18 +165,20 @@ app.MapFallbackToFile("index.html");
 
     try
     {
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
     }
-    catch { }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "An error occurred while migrating the database.");
+    }
 
     var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
     if (adminUser != null)
     {
-        if (adminUser.MustChangePassword || adminUser.PasswordChangedAt == null)
+        adminUser.MustChangePassword = false;
+        if (adminUser.PasswordChangedAt == null)
         {
-            var salt = AuthController.GenerateSalt();
-            adminUser.Salt = salt;
-            adminUser.PasswordHash = AuthController.HashPassword("Adm1n@123", salt);
+            adminUser.PasswordChangedAt = DateTime.UtcNow;
         }
         adminUser.FailedLoginAttempts = 0;
         adminUser.LockedUntil = null;
@@ -195,8 +198,8 @@ app.MapFallbackToFile("index.html");
             Salt = salt,
             Role = UserRole.SuperAdmin,
             IsActive = true,
-            MustChangePassword = true,
-            PasswordChangedAt = null,
+            MustChangePassword = false,
+            PasswordChangedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();

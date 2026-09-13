@@ -37,7 +37,7 @@ public class AuthAndSecurityTests
     }
 
     [Fact]
-    public async Task Seeding_WhenNoSuperAdminExists_CreatesBootstrapAdminWithMustChangePasswordTrue()
+    public async Task Seeding_WhenNoSuperAdminExists_CreatesBootstrapAdminWithMustChangePasswordFalse()
     {
         using var db = GetInMemoryDbContext();
         Assert.False(await db.Users.AnyAsync(u => u.Role == UserRole.SuperAdmin));
@@ -52,8 +52,8 @@ public class AuthAndSecurityTests
             Salt = salt,
             Role = UserRole.SuperAdmin,
             IsActive = true,
-            MustChangePassword = true,
-            PasswordChangedAt = null,
+            MustChangePassword = false,
+            PasswordChangedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
@@ -61,12 +61,12 @@ public class AuthAndSecurityTests
         var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
         Assert.NotNull(adminUser);
         Assert.Equal(UserRole.SuperAdmin, adminUser.Role);
-        Assert.True(adminUser.MustChangePassword);
-        Assert.Null(adminUser.PasswordChangedAt);
+        Assert.False(adminUser.MustChangePassword);
+        Assert.NotNull(adminUser.PasswordChangedAt);
     }
 
     [Fact]
-    public async Task Login_WithBootstrapAccount_ReturnsMustChangePasswordTrue()
+    public async Task Login_WithBootstrapAccount_ReturnsMustChangePasswordFalse()
     {
         using var db = GetInMemoryDbContext();
         var config = GetTestConfig();
@@ -81,7 +81,7 @@ public class AuthAndSecurityTests
             Salt = salt,
             Role = UserRole.SuperAdmin,
             IsActive = true,
-            MustChangePassword = true
+            MustChangePassword = false
         });
         await db.SaveChangesAsync();
 
@@ -89,8 +89,8 @@ public class AuthAndSecurityTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<LoginResponse>(okResult.Value);
 
-        Assert.True(response.MustChangePassword);
-        Assert.True(response.User.MustChangePassword);
+        Assert.False(response.MustChangePassword);
+        Assert.False(response.User.MustChangePassword);
     }
 
     [Fact]

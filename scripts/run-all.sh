@@ -29,7 +29,9 @@ sleep 10
 echo "=== 5. Restoring & Updating Database Migrations ==="
 dotnet restore RemoteAdmin.slnx
 dotnet build RemoteAdmin.slnx
-dotnet ef database update \
+DOTNET_ROOT="${DOTNET_ROOT:-/opt/homebrew/Cellar/dotnet/10.0.400/libexec}" ~/.dotnet/tools/dotnet-ef database update \
+  --project src/RemoteAdmin.Infrastructure \
+  --startup-project src/RemoteAdmin.Api 2>/dev/null || dotnet ef database update \
   --project src/RemoteAdmin.Infrastructure \
   --startup-project src/RemoteAdmin.Api 2>/dev/null || true
 
