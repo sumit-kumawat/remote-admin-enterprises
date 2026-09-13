@@ -13,6 +13,8 @@ export const DiscoveryPage: React.FC = () => {
   const [cidrInput, setCidrInput] = useState('192.168.100.0/24');
   const [selectedDiscoveredIds, setSelectedDiscoveredIds] = useState<string[]>([]);
 
+  const [typeFilter, setTypeFilter] = useState<'All' | 'Windows' | 'Linux' | 'Network'>('All');
+
   const { data: discovered = [], isLoading: isDiscLoading, refetch } = useDiscoveredEndpoints();
   const startScanMutation = useStartDiscoveryScan();
   const importDiscoveredMutation = useImportDiscoveredEndpoints();
@@ -24,7 +26,19 @@ export const DiscoveryPage: React.FC = () => {
     }
   };
 
-  const windowsDiscovered = discovered.filter((d) => d.isWindows);
+  const filteredDiscovered = discovered.filter((d) => {
+    if (typeFilter === 'Windows') return d.isWindows || d.osName?.toLowerCase().includes('windows');
+    if (typeFilter === 'Linux') return d.osName?.toLowerCase().includes('linux');
+    if (typeFilter === 'Network')
+      return (
+        d.osName?.toLowerCase().includes('network') ||
+        d.osName?.toLowerCase().includes('switch') ||
+        d.osName?.toLowerCase().includes('router')
+      );
+    return true;
+  });
+
+  const windowsDiscovered = filteredDiscovered.filter((d) => d.isWindows);
   const isAllSelected = windowsDiscovered.length > 0 && selectedDiscoveredIds.length === windowsDiscovered.length;
 
   const toggleSelectAll = () => {
@@ -108,13 +122,41 @@ export const DiscoveryPage: React.FC = () => {
         </form>
       </div>
 
+      {startScanMutation.isPending && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 flex items-center gap-3 text-blue-800 animate-pulse">
+          <RefreshCw className="h-4 w-4 animate-spin text-[#2F3EA0]" />
+          <div>
+            <div className="font-bold">Realtime Subnet Discovery Scan Running...</div>
+            <div className="text-[11px] text-blue-600">Probing CIDR range {cidrInput} for active IP hosts, NetBIOS, WMI, SSH, and SNMP responses.</div>
+          </div>
+        </div>
+      )}
+
       {isDiscLoading && <LoadingSkeleton rows={5} />}
 
       {/* Discovered Endpoints Table */}
       {!isDiscLoading && (
         <div className="bg-white border border-slate-200 rounded-md shadow-xs overflow-hidden">
-          <div className="p-3 bg-slate-50 border-b border-slate-200 font-semibold text-slate-800 flex flex-wrap items-center justify-between gap-2">
-            <span>Discovered Endpoint Candidates ({discovered.length})</span>
+          <div className="p-3 bg-slate-50 border-b border-slate-200 font-semibold text-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span>Discovered Endpoint Candidates ({filteredDiscovered.length})</span>
+
+              {/* Device Type Filter Dropdown */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-normal text-slate-500">Filter Type:</span>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as any)}
+                  className="px-2 py-1 text-xs border border-slate-300 rounded bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
+                >
+                  <option value="All">All Types ({discovered.length})</option>
+                  <option value="Windows">Windows ({discovered.filter((d) => d.isWindows).length})</option>
+                  <option value="Linux">Linux ({discovered.filter((d) => d.osName?.toLowerCase().includes('linux')).length})</option>
+                  <option value="Network">Network Devices ({discovered.filter((d) => d.osName?.toLowerCase().includes('network') || d.osName?.toLowerCase().includes('switch') || d.osName?.toLowerCase().includes('router')).length})</option>
+                </select>
+              </div>
+            </div>
+
             {selectedDiscoveredIds.length > 0 && (
               <button
                 onClick={handleImportSelected}
@@ -144,7 +186,7 @@ export const DiscoveryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
-                {discovered.map((item) => {
+                {filteredDiscovered.map((item) => {
                   const isSelected = selectedDiscoveredIds.includes(item.id);
                   return (
                     <tr key={item.id} className="hover:bg-slate-50">

@@ -19,9 +19,8 @@ export const Breadcrumb: React.FC = () => {
 
   return (
     <nav aria-label="Breadcrumb" className="flex items-center text-xs text-slate-500 font-sans">
-      <Link to="/dashboard" className="flex items-center gap-1 hover:text-[#2F3EA0] transition-colors">
-        <Home className="h-3.5 w-3.5" />
-        <span>Root</span>
+      <Link to="/dashboard" className="flex items-center gap-1 hover:text-[#2F3EA0] transition-colors" title="Dashboard">
+        <Home className="h-3.5 w-3.5 text-slate-600 hover:text-[#2F3EA0]" />
       </Link>
       {pathnames.map((name, index) => {
         const routeTo = `/${pathnames.slice(0, index + 1).join('/')}`;

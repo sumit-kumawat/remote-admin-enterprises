@@ -159,6 +159,28 @@ public class EndpointsController : ControllerBase
             catch { }
         }
 
+        List<LocalAccountDto> localAccounts = [];
+        if (!string.IsNullOrEmpty(endpoint.LocalAccountsJson))
+        {
+            try
+            {
+                localAccounts = JsonSerializer.Deserialize<List<LocalAccountDto>>(endpoint.LocalAccountsJson) ?? [];
+            }
+            catch { }
+        }
+
+        List<SecuritySoftwareDto> securitySoftware = [];
+        if (!string.IsNullOrEmpty(endpoint.SecuritySoftwareJson))
+        {
+            try
+            {
+                securitySoftware = JsonSerializer.Deserialize<List<SecuritySoftwareDto>>(endpoint.SecuritySoftwareJson) ?? [];
+            }
+            catch { }
+        }
+
+
+
         var detail = new EndpointDetailDto
         {
             Id = endpoint.Id,
@@ -238,8 +260,8 @@ public class EndpointsController : ControllerBase
                 Architecture = s.Architecture?.ToString(),
                 InstallPath = s.InstallPath,
             }).ToList(),
-            LocalAccounts = [],
-            SecuritySoftware = [],
+            LocalAccounts = localAccounts,
+            SecuritySoftware = securitySoftware,
             PhysicalDisks = endpoint.HardwareInventory?.Drives != null && endpoint.HardwareInventory.Drives.Count > 0
                 ? [
                     new PhysicalDiskDto
@@ -643,6 +665,10 @@ public class EndpointsController : ControllerBase
                     });
                 }
             }
+
+            endpoint.LocalAccountsJson = JsonSerializer.Serialize(queryResult.LocalAccounts);
+            endpoint.SecuritySoftwareJson = JsonSerializer.Serialize(queryResult.SecuritySoftware);
+            endpoint.SectionStatusesJson = JsonSerializer.Serialize(queryResult.SectionStatuses);
 
             endpoint.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();

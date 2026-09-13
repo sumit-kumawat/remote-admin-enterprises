@@ -130,7 +130,10 @@ export const EndpointDetailPage: React.FC = () => {
     }
   };
 
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
   const handleCheckConnection = async () => {
+    setIsCheckingConnection(true);
     try {
       toast.info('Authenticating Remote Host...', `Testing WMI connectivity & live queries on ${endpoint.hostname}`);
       const res = await endpointsApi.checkConnection(endpoint.id);
@@ -139,9 +142,11 @@ export const EndpointDetailPage: React.FC = () => {
       } else {
         toast.error('Connection Check Failed', res.message || 'Remote WMI query failed.');
       }
-      refetch();
+      await refetch();
     } catch (err: any) {
       toast.error('Check Failed', err?.response?.data?.message || 'Connection check failed');
+    } finally {
+      setIsCheckingConnection(false);
     }
   };
 
@@ -221,9 +226,11 @@ export const EndpointDetailPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleCheckConnection}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded shadow-xs cursor-pointer"
+              disabled={isCheckingConnection}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded shadow-xs cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className="h-3.5 w-3.5 text-[#2F3EA0]" /> Check Connection & Authenticate
+              <RefreshCw className={`h-3.5 w-3.5 text-[#2F3EA0] ${isCheckingConnection ? 'animate-spin' : ''}`} />
+              {isCheckingConnection ? 'Authenticating WMI...' : 'Check Connection & Authenticate'}
             </button>
             <button
               onClick={() => setPowerActionModal({ isOpen: true, action: 'Restart' })}
@@ -253,6 +260,21 @@ export const EndpointDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {isCheckingConnection && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3 flex items-center gap-3 text-indigo-900 animate-pulse shadow-xs">
+            <RefreshCw className="h-4 w-4 animate-spin text-[#2F3EA0]" />
+            <div className="flex-1">
+              <div className="font-bold text-xs flex items-center justify-between">
+                <span>Realtime Remote WMI Authentication & Live Query In Progress...</span>
+                <span className="text-[11px] text-indigo-700 font-mono">{endpoint.ipAddress || endpoint.hostname} : WMI/RPC</span>
+              </div>
+              <div className="w-full bg-indigo-200 h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div className="bg-[#2F3EA0] h-full rounded-full animate-pulse w-3/4" />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Identity Bar */}
         <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-100">

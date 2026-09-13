@@ -30,6 +30,8 @@ public class Endpoint
     public string? SystemUptime { get; set; }
     public DateTime? LastSuccessfulRefresh { get; set; }
     public string? SectionStatusesJson { get; set; }
+    public string? LocalAccountsJson { get; set; }
+    public string? SecuritySoftwareJson { get; set; }
 
     public EndpointGroup? Group { get; set; }
     public CredentialProfile? CredentialProfile { get; set; }

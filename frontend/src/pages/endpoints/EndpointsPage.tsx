@@ -221,10 +221,10 @@ export const EndpointsPage: React.FC = () => {
                   <th className="p-2.5">Hostname</th>
                   <th className="p-2.5">IP Address</th>
                   <th className="p-2.5">Status</th>
-                  <th className="p-2.5">Login / Authorization</th>
+                  <th className="p-2.5">Authorization</th>
                   <th className="p-2.5">Login User</th>
-                  <th className="p-2.5">OS / Device</th>
-                  <th className="p-2.5 text-right">Action</th>
+                  <th className="p-2.5">Operating System</th>
+                  <th className="p-2.5 text-left">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">

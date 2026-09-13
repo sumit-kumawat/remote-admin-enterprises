@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RemoteAdmin.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RemoteAdmin.Infrastructure.Data;
 namespace RemoteAdmin.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914003500_AddLocalAccountsAndSecuritySoftwareJson")]
+    partial class AddLocalAccountsAndSecuritySoftwareJson
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -101,77 +104,6 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.ToTable("AuditEvents");
                 });
 
-            modelBuilder.Entity("RemoteAdmin.Domain.Entities.BulkOperation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("FailedCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("OperationType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("RequestedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("SuccessCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("TotalEndpoints")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("BulkOperations");
-                });
-
-            modelBuilder.Entity("RemoteAdmin.Domain.Entities.BulkOperationItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("BulkOperationId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EndpointHostname")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("EndpointId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ResultMessage")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BulkOperationId");
-
-                    b.ToTable("BulkOperationItems");
-                });
-
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.CredentialProfile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,14 +113,22 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<string>("EncryptedPassword")
+                    b.Property<string>("CreatedBy")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Domain")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -197,7 +137,8 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
 
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
@@ -210,40 +151,25 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("CommandLine")
-                        .HasColumnType("text");
-
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedByUserId")
+                    b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("EndpointId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ErrorOutput")
+                    b.Property<string>("ErrorMessage")
                         .HasColumnType("text");
 
-                    b.Property<int?>("ExitCode")
-                        .HasColumnType("integer");
+                    b.Property<Guid>("InstallerPackageId")
+                        .HasColumnType("uuid");
 
-                    b.Property<string>("Output")
+                    b.Property<string>("LogOutput")
                         .HasColumnType("text");
 
-                    b.Property<string>("PackageName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PackageVersion")
-                        .HasColumnType("text");
-
-                    b.Property<int>("RetryCount")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("StartedAt")
+                    b.Property<DateTime>("StartedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
@@ -416,13 +342,18 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid?>("ParentGroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
+                    b.HasIndex("ParentGroupId");
 
                     b.ToTable("EndpointGroups");
                 });
@@ -532,14 +463,65 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.ToTable("HardwareInventories");
                 });
 
+            modelBuilder.Entity("RemoteAdmin.Domain.Entities.InstallerPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Architecture")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PackageName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SilentArgs")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetOs")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InstallerPackages");
+                });
+
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.SoftwareInventoryItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<int?>("Architecture")
-                        .HasColumnType("integer");
+                    b.Property<string>("Architecture")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("EndpointId")
                         .HasColumnType("uuid");
@@ -558,6 +540,7 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Version")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -565,43 +548,6 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.HasIndex("EndpointId");
 
                     b.ToTable("SoftwareInventoryItems");
-                });
-
-            modelBuilder.Entity("RemoteAdmin.Domain.Entities.SoftwarePackage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Architecture")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Version")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("SoftwarePackages");
                 });
 
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.StorageDrive", b =>
@@ -648,19 +594,17 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .IsRequired()
+                        .HasColumnType("text");
 
-                    b.Property<int>("FailedLoginAttempts")
-                        .HasColumnType("integer");
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
-                    b.Property<DateTime?>("LastLogin")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("LockedUntil")
+                    b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("MustChangePassword")
@@ -678,19 +622,15 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<string>("Salt")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Username")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -709,23 +649,13 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.Navigation("Endpoint");
                 });
 
-            modelBuilder.Entity("RemoteAdmin.Domain.Entities.BulkOperationItem", b =>
-                {
-                    b.HasOne("RemoteAdmin.Domain.Entities.BulkOperation", "BulkOperation")
-                        .WithMany("Items")
-                        .HasForeignKey("BulkOperationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("BulkOperation");
-                });
-
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.DeploymentJob", b =>
                 {
                     b.HasOne("RemoteAdmin.Domain.Entities.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("RemoteAdmin.Domain.Entities.Endpoint", "Endpoint")
                         .WithMany()
@@ -741,7 +671,7 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.Endpoint", b =>
                 {
                     b.HasOne("RemoteAdmin.Domain.Entities.CredentialProfile", "CredentialProfile")
-                        .WithMany()
+                        .WithMany("Endpoints")
                         .HasForeignKey("CredentialProfileId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -753,6 +683,16 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.Navigation("CredentialProfile");
 
                     b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("RemoteAdmin.Domain.Entities.EndpointGroup", b =>
+                {
+                    b.HasOne("RemoteAdmin.Domain.Entities.EndpointGroup", "ParentGroup")
+                        .WithMany("SubGroups")
+                        .HasForeignKey("ParentGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ParentGroup");
                 });
 
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.EndpointNetworkInterface", b =>
@@ -799,9 +739,9 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.Navigation("HardwareInventory");
                 });
 
-            modelBuilder.Entity("RemoteAdmin.Domain.Entities.BulkOperation", b =>
+            modelBuilder.Entity("RemoteAdmin.Domain.Entities.CredentialProfile", b =>
                 {
-                    b.Navigation("Items");
+                    b.Navigation("Endpoints");
                 });
 
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.Endpoint", b =>
@@ -818,6 +758,8 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.EndpointGroup", b =>
                 {
                     b.Navigation("Endpoints");
+
+                    b.Navigation("SubGroups");
                 });
 
             modelBuilder.Entity("RemoteAdmin.Domain.Entities.HardwareInventory", b =>

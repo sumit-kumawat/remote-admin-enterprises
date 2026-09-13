@@ -147,9 +147,9 @@ export const Header: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => searchQuery.trim() && setIsDropdownOpen(true)}
               onKeyDown={handleKeyDown}
-              placeholder="Global search endpoints (hostname, IP, OS, user)..."
+              placeholder="Global search endpoints (hostname, FQDN, IP, OS, login user)..."
               aria-label="Global endpoint search"
-              className="w-56 focus:w-72 transition-all duration-200 pl-8 pr-7 py-1 text-xs border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
+              className="w-[360px] sm:w-[440px] focus:w-[560px] transition-all duration-200 pl-8 pr-7 py-1 text-xs border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
             {isSearching && (
               <Loader2 className="h-3.5 w-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-[#2F3EA0] animate-spin" />
@@ -158,7 +158,7 @@ export const Header: React.FC = () => {
 
           {/* Search Dropdown Results */}
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-1 w-80 bg-white border border-slate-300 rounded-md shadow-lg py-1 z-30 text-xs animate-in fade-in duration-100 max-h-80 overflow-y-auto">
+            <div className="absolute right-0 mt-1 w-[520px] bg-white border border-slate-300 rounded-md shadow-lg py-1 z-30 text-xs animate-in fade-in duration-100 max-h-80 overflow-y-auto">
               <div className="px-3 py-1.5 border-b border-slate-100 bg-slate-50 text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex justify-between items-center">
                 <span>Matching Endpoints ({searchResults.length})</span>
                 <span className="text-slate-400 font-normal">Use ↑↓ & Enter</span>
