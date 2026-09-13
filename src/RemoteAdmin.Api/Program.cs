@@ -66,9 +66,8 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(corsBuilder =>
     {
-        var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>()
-            ?? ["http://localhost:3000"];
-        corsBuilder.WithOrigins(origins)
+        corsBuilder
+            .SetIsOriginAllowed(_ => true)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -146,6 +145,7 @@ app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+app.MapGet("/api", () => Results.Redirect("/swagger"));
 
 app.MapFallbackToFile("index.html");
 
