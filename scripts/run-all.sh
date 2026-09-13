@@ -25,9 +25,9 @@ echo "=== 4. Ensuring PostgreSQL Container is Running ==="
 docker compose up -d
 sleep 2
 
-echo "=== 5. Publishing Backend API ==="
+echo "=== 5. Fast Building Backend API ==="
 PUBLISH_DIR="$REPO_DIR/publish"
-dotnet publish src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release -o "$PUBLISH_DIR" -m /p:UseSharedCompilation=true /p:BuildInParallel=true
+dotnet build src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -o "$PUBLISH_DIR"
 
 echo "=== 6. Verifying Published Artifacts ==="
 if [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ]; then
