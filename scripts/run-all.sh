@@ -75,10 +75,8 @@ fi
 
 echo "=== 8. Launching Frontend Dev Server ==="
 cd "$REPO_DIR/frontend"
-if [ ! -d "node_modules" ]; then
-    echo "Installing frontend packages..."
-    npm install --prefer-offline --no-audit
-fi
+echo "Ensuring frontend dependencies are up to date..."
+npm install --prefer-offline --no-audit
 npm run dev -- --host &
 
 wait
