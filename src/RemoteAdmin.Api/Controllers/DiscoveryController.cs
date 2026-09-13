@@ -179,7 +179,7 @@ public class DiscoveryController : ControllerBase
                     Status = Domain.Enums.EndpointStatus.Unknown,
                     ApprovalStatus = Domain.Enums.EndpointApprovalStatus.Approved,
                     AuthMode = "Inherit",
-                    AuthStatus = "Pending Authorization",
+                    AuthStatus = "NotAuthorized",
                     AuthUser = null,
                     DeviceType = "Windows",
                     Description = $"Imported via Discovery Scan ({item.ScanId})",

@@ -55,7 +55,7 @@ public class EndpointsController : ControllerBase
                 IpAddress = e.IpAddress,
                 MacAddress = e.MacAddress,
                 Status = e.Status.ToString(),
-                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Pending Authorization" : e.AuthStatus,
+                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "NotAuthorized" : e.AuthStatus,
                 AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : null),
                 DeviceType = string.IsNullOrEmpty(e.DeviceType) ? "Windows" : e.DeviceType,
                 OsName = e.HardwareInventory != null ? e.HardwareInventory.Manufacturer : "Windows Endpoint",
@@ -99,7 +99,7 @@ public class EndpointsController : ControllerBase
                 MacAddress = e.MacAddress,
                 Status = e.Status.ToString(),
                 ApprovalStatus = e.ApprovalStatus.ToString(),
-                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "Pending Authorization" : e.AuthStatus,
+                AuthStatus = string.IsNullOrEmpty(e.AuthStatus) ? "NotAuthorized" : e.AuthStatus,
                 AuthMode = string.IsNullOrEmpty(e.AuthMode) ? "Inherit" : e.AuthMode,
                 AuthUser = e.AuthUser ?? (e.CredentialProfile != null ? e.CredentialProfile.Username : null),
                 CredentialProfileId = e.CredentialProfileId,
@@ -181,7 +181,7 @@ public class EndpointsController : ControllerBase
             MacAddress = endpoint.MacAddress,
             Status = endpoint.Status.ToString(),
             ApprovalStatus = endpoint.ApprovalStatus.ToString(),
-            AuthStatus = string.IsNullOrEmpty(endpoint.AuthStatus) ? "Pending Authorization" : endpoint.AuthStatus,
+            AuthStatus = string.IsNullOrEmpty(endpoint.AuthStatus) ? "NotAuthorized" : endpoint.AuthStatus,
             AuthMode = string.IsNullOrEmpty(endpoint.AuthMode) ? "Inherit" : endpoint.AuthMode,
             AuthUser = endpoint.AuthUser ?? (endpoint.CredentialProfile != null ? endpoint.CredentialProfile.Username : null),
             CredentialProfileId = endpoint.CredentialProfileId,
@@ -330,7 +330,7 @@ public class EndpointsController : ControllerBase
             Location = request.Location?.Trim(),
             GroupId = request.GroupId,
             Status = EndpointStatus.Unknown,
-            AuthStatus = "Pending Authorization",
+            AuthStatus = "NotAuthorized",
             ApprovalStatus = EndpointApprovalStatus.Approved,
         };
 
@@ -346,13 +346,13 @@ public class EndpointsController : ControllerBase
         });
 
         await _db.SaveChangesAsync();
-        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) added. Pending authorization.", endpoint.Hostname, endpoint.IpAddress);
+        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) added. AuthStatus set to NotAuthorized until logged in.", endpoint.Hostname, endpoint.IpAddress);
 
         return CreatedAtAction(nameof(GetById), new { id = endpoint.Id },
             new ApiResponse<EndpointDto>
             {
                 Success = true,
-                Message = $"Endpoint '{endpoint.Hostname}' added successfully. Status set to Pending Authorization.",
+                Message = $"Endpoint '{endpoint.Hostname}' added successfully. Status: Not Authorized.",
                 Data = new EndpointDto
                 {
                     Id = endpoint.Id,
@@ -425,7 +425,7 @@ public class EndpointsController : ControllerBase
                     Hostname = target,
                     IpAddress = resolvedIp,
                     Status = EndpointStatus.Unknown,
-                    AuthStatus = "Pending Authorization",
+                    AuthStatus = "NotAuthorized",
                     ApprovalStatus = EndpointApprovalStatus.Approved,
                     Description = "Imported from file upload",
                 });

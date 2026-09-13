@@ -230,7 +230,7 @@ export const EndpointsPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 font-sans">
                 {filteredItems.map((ep) => {
                   const isSelected = selectedEndpointIds.includes(ep.id);
-                  const authStatus = ep.authStatus || 'Pending Authorization';
+                  const authStatus = ep.authStatus || 'NotAuthorized';
                   const authUser = ep.authUser || 'No credential configured';
                   const deviceType = ep.deviceType || 'Windows';
 

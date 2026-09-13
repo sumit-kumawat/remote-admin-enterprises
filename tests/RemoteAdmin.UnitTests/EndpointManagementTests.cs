@@ -62,12 +62,12 @@ public class EndpointManagementTests
         var createdResult = Assert.IsType<CreatedAtActionResult>(result);
         var response = Assert.IsType<ApiResponse<EndpointDto>>(createdResult.Value);
         Assert.True(response.Success);
-        Assert.Equal("Pending Authorization", response.Data?.AuthStatus);
+        Assert.Equal("NotAuthorized", response.Data?.AuthStatus);
         Assert.Null(response.Data?.AuthUser);
 
         var dbEndpoint = await db.Endpoints.FirstOrDefaultAsync(e => e.Hostname == "SRV-TEST01");
         Assert.NotNull(dbEndpoint);
-        Assert.Equal("Pending Authorization", dbEndpoint.AuthStatus);
+        Assert.Equal("NotAuthorized", dbEndpoint.AuthStatus);
         Assert.Null(dbEndpoint.AuthUser);
     }
 
