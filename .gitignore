@@ -4,6 +4,7 @@
 **/node_modules/
 **/dist/
 **/packages/
+publish/
 
 # Environment
 .env

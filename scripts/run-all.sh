@@ -22,44 +22,63 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 echo "=== 4. Ensuring PostgreSQL Container is Running ==="
-rm -f .env
 docker compose up -d
 sleep 2
 
-echo "=== 5. Publishing Compiled Backend API (Optimized Parallel Build) ==="
-dotnet publish src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release -o ./publish -m /p:UseSharedCompilation=true /p:BuildInParallel=true
+echo "=== 5. Publishing Backend API ==="
+PUBLISH_DIR="$REPO_DIR/publish"
+dotnet publish src/RemoteAdmin.Api/RemoteAdmin.Api.csproj -c Release -o "$PUBLISH_DIR" -m /p:UseSharedCompilation=true /p:BuildInParallel=true
 
-echo "=== 6. Preparing Frontend Dependencies ==="
-cd frontend
-if [ ! -d "node_modules" ]; then
-    echo "Installing frontend packages..."
-    npm install --prefer-offline --no-audit
+echo "=== 6. Verifying Published Artifacts ==="
+if [ ! -f "$PUBLISH_DIR/RemoteAdmin.Api.dll" ]; then
+    echo "ERROR: Published binary RemoteAdmin.Api.dll not found in $PUBLISH_DIR"
+    exit 1
 fi
 
-echo "=== 7. Launching Backend & Frontend Services ==="
-cd "$REPO_DIR"
+if [ ! -f "$PUBLISH_DIR/appsettings.json" ]; then
+    echo "ERROR: Published appsettings.json not found in $PUBLISH_DIR"
+    exit 1
+fi
 
 cleanup() {
     echo ""
-    echo "Stopping API and Frontend..."
+    echo "Stopping API and Frontend child processes..."
     kill 0 2>/dev/null || true
 }
 trap cleanup INT TERM EXIT
 
-echo "Starting Backend API from ./publish/RemoteAdmin.Api.dll on http://0.0.0.0:5000 ..."
-ASPNETCORE_ENVIRONMENT=Development dotnet ./publish/RemoteAdmin.Api.dll &
+echo "=== 7. Launching Backend API from Published Content Root ==="
+cd "$PUBLISH_DIR"
+ASPNETCORE_ENVIRONMENT=Development dotnet RemoteAdmin.Api.dll &
+API_PID=$!
 
-echo "Waiting for Backend API to start listening on http://127.0.0.1:5000 ..."
+echo "Waiting for Backend API to become healthy on http://127.0.0.1:5000/health (PID: $API_PID) ..."
+API_READY=0
 for i in {1..30}; do
-    if curl -s http://127.0.0.1:5000/health >/dev/null 2>&1 || curl -s http://127.0.0.1:5000/api >/dev/null 2>&1; then
-        echo "Backend API is ready and listening!"
+    if ! kill -0 $API_PID 2>/dev/null; then
+        echo "ERROR: Backend API process crashed on startup! (Process $API_PID exited)"
+        exit 1
+    fi
+    if curl -fsS http://127.0.0.1:5000/health >/dev/null 2>&1; then
+        echo "Backend API is healthy and listening on http://127.0.0.1:5000!"
+        API_READY=1
         break
     fi
     sleep 1
 done
 
-echo "Starting Frontend Dev Server on http://0.0.0.0:3000 ..."
-cd frontend
+if [ "$API_READY" -ne 1 ]; then
+    echo "ERROR: Backend API failed to respond to health checks within 30 seconds."
+    kill $API_PID 2>/dev/null || true
+    exit 1
+fi
+
+echo "=== 8. Launching Frontend Dev Server ==="
+cd "$REPO_DIR/frontend"
+if [ ! -d "node_modules" ]; then
+    echo "Installing frontend packages..."
+    npm install --prefer-offline --no-audit
+fi
 npm run dev -- --host &
 
 wait

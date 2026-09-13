@@ -26,10 +26,17 @@ builder.Host.UseSerilog((context, loggerConfig) =>
             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}");
 });
 
-// Database
+// Database Configuration & Validation
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(defaultConnectionString))
+{
+    Log.Fatal("CRITICAL CONFIGURATION ERROR: Database connection string is missing or uninitialized. Expected configuration key: ConnectionStrings:DefaultConnection");
+    throw new InvalidOperationException("CRITICAL CONFIGURATION ERROR: Database connection string is missing or uninitialized. Expected configuration key: ConnectionStrings:DefaultConnection");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    options.UseNpgsql(defaultConnectionString, npgsqlOptions =>
         npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
     options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
 });
@@ -178,7 +185,7 @@ app.MapGet("/api", () => Results.Redirect("/swagger"));
 
 app.MapFallbackToFile("index.html");
 
-// Auto-migrate and seed default SuperAdmin
+// Auto-migrate and seed default SuperAdmin if none exists
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -186,31 +193,16 @@ app.MapFallbackToFile("index.html");
     try
     {
         await db.Database.MigrateAsync();
+        Log.Information("Database migrations verified and applied successfully.");
     }
     catch (Exception ex)
     {
-        Log.Error(ex, "An error occurred while migrating the database.");
+        Log.Fatal(ex, "CRITICAL ERROR: Failed to apply database migrations.");
+        throw;
     }
 
-    var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
-    if (adminUser != null)
-    {
-        var salt = AuthController.GenerateSalt();
-        var hash = AuthController.HashPassword("Adm1n@123", salt);
-        adminUser.Salt = salt;
-        adminUser.PasswordHash = hash;
-        adminUser.MustChangePassword = false;
-        if (adminUser.PasswordChangedAt == null)
-        {
-            adminUser.PasswordChangedAt = DateTime.UtcNow;
-        }
-        adminUser.FailedLoginAttempts = 0;
-        adminUser.LockedUntil = null;
-        adminUser.IsActive = true;
-        await db.SaveChangesAsync();
-        Log.Information("[AUTH BOOTSTRAP] Verified & Reset default admin account credentials (Username: admin, Password: Adm1n@123).");
-    }
-    else
+    var hasSuperAdmin = await db.Users.AnyAsync(u => u.Role == UserRole.SuperAdmin);
+    if (!hasSuperAdmin)
     {
         var salt = AuthController.GenerateSalt();
         var hash = AuthController.HashPassword("Adm1n@123", salt);
@@ -222,12 +214,16 @@ app.MapFallbackToFile("index.html");
             Salt = salt,
             Role = UserRole.SuperAdmin,
             IsActive = true,
-            MustChangePassword = false,
-            PasswordChangedAt = DateTime.UtcNow,
+            MustChangePassword = true,
+            PasswordChangedAt = null,
             CreatedAt = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();
-        Log.Information("Bootstrap admin seeded. Password: Adm1n@123");
+        Log.Information("[AUTH BOOTSTRAP] Default SuperAdmin account created (Username: admin). Password change required on first login.");
+    }
+    else
+    {
+        Log.Information("[AUTH BOOTSTRAP] SuperAdmin account exists; skipping bootstrap user creation.");
     }
 }
 
