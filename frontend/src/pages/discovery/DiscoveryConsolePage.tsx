@@ -46,7 +46,7 @@ export const DiscoveryConsolePage: React.FC = () => {
   const [concurrency, setConcurrency] = useState(500);
   const [timeoutMs, setTimeoutMs] = useState(2000);
   const [rateLimitPps, setRateLimitPps] = useState(5000);
-  const [confirmedOwnership, setConfirmedOwnership] = useState(false);
+  const [confirmedOwnership, setConfirmedOwnership] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Log filter
@@ -64,8 +64,9 @@ export const DiscoveryConsolePage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!targetCidr.trim()) {
-      setFormError('Please provide a target subnet CIDR (e.g. 192.168.1.0/24).');
+    const cidrToScan = targetCidr.trim();
+    if (!cidrToScan) {
+      setFormError('Please provide a target subnet CIDR (e.g. 192.168.100.0/24).');
       return;
     }
 
@@ -78,7 +79,8 @@ export const DiscoveryConsolePage: React.FC = () => {
 
     createScanMutation.mutate(
       {
-        targetCidr: targetCidr.trim(),
+        name: `Subnet Scan ${cidrToScan}`,
+        targetCidr: cidrToScan,
         scanType,
         portSet: effectivePortSet,
         concurrency,
@@ -88,7 +90,11 @@ export const DiscoveryConsolePage: React.FC = () => {
       },
       {
         onSuccess: (scan) => {
-          navigate(`/discovery/scans/${scan.id}`);
+          if (scan && scan.id) {
+            navigate(`/discovery/scans/${scan.id}`);
+          } else {
+            navigate('/discovery/scans');
+          }
         },
         onError: (err: any) => {
           const msg = err.response?.data?.message || err.message || 'Failed to start scan';

@@ -31,12 +31,13 @@ export function useDiscoveryHub(scanId?: string): UseDiscoveryHubReturn {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('ra_token') || '';
     const connection = new signalR.HubConnectionBuilder()
       .withUrl('/hubs/discovery', {
-        accessTokenFactory: () => token,
+        accessTokenFactory: () => {
+          return localStorage.getItem('ra_token') || (window as any).__AUTH_TOKEN__ || '';
+        },
       })
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 

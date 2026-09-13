@@ -2,7 +2,7 @@ namespace RemoteAdmin.Contracts.Dtos;
 
 public class CreateScanRequest
 {
-    public required string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
     public required string TargetCidr { get; set; }
     public string ScanType { get; set; } = "Full"; // ARP | ICMP | TCP | Full
     public string PortSet { get; set; } = "Common"; // Common | Web | Windows | SSH | Database | Custom
