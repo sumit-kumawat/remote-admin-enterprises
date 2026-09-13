@@ -13,7 +13,7 @@ export const discoveryApi = {
   // Scans
   getScans: async (): Promise<DiscoveryScanDto[]> => {
     const response = await apiClient.get<DiscoveryScanDto[]>('/api/Discovery/scans');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   getScan: async (id: string): Promise<DiscoveryScanDto> => {
@@ -23,7 +23,7 @@ export const discoveryApi = {
 
   getScanHosts: async (id: string): Promise<DiscoveryHostDto[]> => {
     const response = await apiClient.get<DiscoveryHostDto[]>(`/api/Discovery/scans/${id}/hosts`);
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   createScan: async (request: CreateScanRequest): Promise<DiscoveryScanDto> => {
@@ -63,7 +63,7 @@ export const discoveryApi = {
   // Schedules
   getSchedules: async (): Promise<DiscoveryScheduleDto[]> => {
     const response = await apiClient.get<DiscoveryScheduleDto[]>('/api/Discovery/schedules');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   createSchedule: async (request: CreateScheduleRequest): Promise<DiscoveryScheduleDto> => {
@@ -83,6 +83,6 @@ export const discoveryApi = {
   // Subnets / Local Interfaces
   getSubnets: async (): Promise<NetworkInterfaceDto[]> => {
     const response = await apiClient.get<NetworkInterfaceDto[]>('/api/Discovery/subnets');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 };

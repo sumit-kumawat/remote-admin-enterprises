@@ -45,28 +45,32 @@ export function useDiscoveryHub(scanId?: string): UseDiscoveryHubReturn {
 
     // Wire event handlers
     connection.on('scan.started', (scan: DiscoveryScanDto) => {
-      queryClient.setQueryData(['discovery-scan', scan.id], scan);
-      queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      if (scan && scan.id) {
+        queryClient.setQueryData(['discovery-scan', scan.id], scan);
+        queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      }
     });
 
     connection.on('scan.progress', (progress: { scanId: string; progressPercent: number; hostsFound: number; hostsTotal: number }) => {
-      queryClient.setQueryData<DiscoveryScanDto | undefined>(['discovery-scan', progress.scanId], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          progressPercent: progress.progressPercent,
-          hostsFound: progress.hostsFound,
-          hostsTotal: progress.hostsTotal,
-        };
-      });
+      if (progress && progress.scanId) {
+        queryClient.setQueryData<DiscoveryScanDto | undefined>(['discovery-scan', progress.scanId], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            progressPercent: progress.progressPercent,
+            hostsFound: progress.hostsFound,
+            hostsTotal: progress.hostsTotal,
+          };
+        });
+      }
     });
 
     connection.on('host.discovered', (host: DiscoveryHostDto) => {
+      if (!host || !host.id || !host.scanId) return;
       triggerHostFlash(host.id);
 
-      // Invalidate/update scan host cache for host's scanId
       queryClient.setQueryData<DiscoveryHostDto[] | undefined>(['discovery-hosts', host.scanId], (old) => {
-        if (!old) return [host];
+        if (!Array.isArray(old)) return [host];
         const exists = old.some((h) => h.id === host.id);
         if (exists) {
           return old.map((h) => (h.id === host.id ? host : h));
@@ -78,32 +82,39 @@ export function useDiscoveryHub(scanId?: string): UseDiscoveryHubReturn {
     });
 
     connection.on('host.updated', (host: DiscoveryHostDto) => {
+      if (!host || !host.id || !host.scanId) return;
       queryClient.setQueryData<DiscoveryHostDto[] | undefined>(['discovery-hosts', host.scanId], (old) => {
-        if (!old) return [host];
+        if (!Array.isArray(old)) return [host];
         return old.map((h) => (h.id === host.id ? host : h));
       });
     });
 
     connection.on('scan.completed', (data: { scanId: string; hostsFound: number; totalDurationMs: number }) => {
-      queryClient.invalidateQueries({ queryKey: ['discovery-scan', data.scanId] });
-      queryClient.invalidateQueries({ queryKey: ['discovery-hosts', data.scanId] });
-      queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      if (data && data.scanId) {
+        queryClient.invalidateQueries({ queryKey: ['discovery-scan', data.scanId] });
+        queryClient.invalidateQueries({ queryKey: ['discovery-hosts', data.scanId] });
+        queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      }
     });
 
     connection.on('scan.failed', (data: { scanId: string; error: string }) => {
-      queryClient.invalidateQueries({ queryKey: ['discovery-scan', data.scanId] });
-      queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      if (data && data.scanId) {
+        queryClient.invalidateQueries({ queryKey: ['discovery-scan', data.scanId] });
+        queryClient.invalidateQueries({ queryKey: ['discovery-scans'] });
+      }
     });
 
     connection.on('scan.event', (eventDto: DiscoveryScanEventDto) => {
-      setEvents((prev) => [eventDto, ...prev.slice(0, 499)]); // Keep last 500 events
+      if (eventDto) {
+        setEvents((prev) => [eventDto, ...prev.slice(0, 499)]);
+      }
     });
 
     connection.onreconnecting(() => setConnectionStatus('reconnecting'));
     connection.onreconnected(() => {
       setConnectionStatus('connected');
       if (scanId) {
-        connection.invoke('JoinScanGroup', scanId).catch(console.error);
+        connection.invoke('JoinScanGroup', scanId).catch(() => {});
       }
     });
 
@@ -115,7 +126,7 @@ export function useDiscoveryHub(scanId?: string): UseDiscoveryHubReturn {
       .then(() => {
         setConnectionStatus('connected');
         if (scanId) {
-          connection.invoke('JoinScanGroup', scanId).catch(console.error);
+          connection.invoke('JoinScanGroup', scanId).catch(() => {});
         }
       })
       .catch((err) => {
@@ -127,7 +138,7 @@ export function useDiscoveryHub(scanId?: string): UseDiscoveryHubReturn {
       if (scanId && connection.state === signalR.HubConnectionState.Connected) {
         connection.invoke('LeaveScanGroup', scanId).catch(() => {});
       }
-      connection.stop();
+      connection.stop().catch(() => {});
     };
   }, [queryClient, scanId, triggerHostFlash]);
 

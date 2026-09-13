@@ -98,14 +98,18 @@ export const DiscoveryConsolePage: React.FC = () => {
     );
   };
 
+  const safeScans = Array.isArray(scans) ? scans : [];
+  const safeSubnets = Array.isArray(subnets) ? subnets : [];
+  const safeEvents = Array.isArray(events) ? events : [];
+
   // Filtered Events
-  const filteredEvents = events.filter((ev) => {
+  const filteredEvents = safeEvents.filter((ev) => {
     if (logSeverityFilter !== 'All' && ev.severity !== logSeverityFilter) return false;
     return true;
   });
 
-  const activeScans = scans.filter((s) => s.status === 'Running' || s.status === 'Queued' || s.status === 'Paused');
-  const totalHostsFound = scans.reduce((acc, s) => acc + s.hostsFound, 0);
+  const activeScans = safeScans.filter((s) => s.status === 'Running' || s.status === 'Queued' || s.status === 'Paused');
+  const totalHostsFound = safeScans.reduce((acc, s) => acc + (s.hostsFound || 0), 0);
 
   return (
     <div className="space-y-4 text-xs font-sans">
@@ -158,11 +162,11 @@ export const DiscoveryConsolePage: React.FC = () => {
                 </div>
 
                 {/* Quick Pick Subnet Chips */}
-                {subnets.length > 0 && (
+                {safeSubnets.length > 0 && (
                   <div className="mt-2 space-y-1">
                     <span className="text-[10px] text-slate-500 font-medium">Quick Pick Local Subnets:</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {subnets.map((sub) => (
+                      {safeSubnets.map((sub) => (
                         <button
                           key={sub.cidr}
                           type="button"
@@ -352,7 +356,7 @@ export const DiscoveryConsolePage: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-white p-3 border border-slate-200 rounded-md shadow-xs">
               <div className="text-[11px] text-slate-500 font-medium">Total Scans</div>
-              <div className="text-xl font-bold text-slate-900 mt-1">{scans.length}</div>
+              <div className="text-xl font-bold text-slate-900 mt-1">{safeScans.length}</div>
             </div>
             <div className="bg-white p-3 border border-slate-200 rounded-md shadow-xs">
               <div className="text-[11px] text-slate-500 font-medium">Active Scans</div>
