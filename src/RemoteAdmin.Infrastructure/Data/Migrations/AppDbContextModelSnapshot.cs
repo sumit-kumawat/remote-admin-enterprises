@@ -403,6 +403,9 @@ namespace RemoteAdmin.Infrastructure.Data.Migrations
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");

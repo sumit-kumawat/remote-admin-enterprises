@@ -12,6 +12,7 @@ public class User
     public UserRole Role { get; set; } = UserRole.Viewer;
     public bool IsActive { get; set; } = true;
     public bool MustChangePassword { get; set; }
+    public DateTime? PasswordChangedAt { get; set; }
     public int FailedLoginAttempts { get; set; }
     public DateTime? LockedUntil { get; set; }
     public DateTime? LastLogin { get; set; }

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using RemoteAdmin.Api.Controllers;
+using RemoteAdmin.Api.Middleware;
 using RemoteAdmin.Domain.Entities;
 using RemoteAdmin.Domain.Enums;
 using RemoteAdmin.Infrastructure.Data;
@@ -130,20 +131,25 @@ app.Use(async (context, next) =>
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<MustChangePasswordMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "Remote Admin Enterprises API v1.0");
-    options.DocumentTitle = "Remote Admin Enterprises";
+    options.DocumentTitle = "Remote Admin Enterprises — API";
+    options.RoutePrefix = "swagger";
 });
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
 
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapFallbackToFile("index.html");
 
-// Auto-migrate and seed default admin
+// Auto-migrate and seed default SuperAdmin
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -153,7 +159,11 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
         await db.Database.MigrateAsync();
     }
 
-    if (!await db.Users.AnyAsync(u => u.Username == "admin"))
+    if (await db.Users.AnyAsync(u => u.Role == UserRole.SuperAdmin))
+    {
+        Log.Information("SuperAdmin already exists; skipping seed.");
+    }
+    else
     {
         var salt = AuthController.GenerateSalt();
         var hash = AuthController.HashPassword("Adm1n@123", salt);
@@ -165,10 +175,12 @@ app.MapGet("/", () => Results.Redirect("/swagger"));
             Salt = salt,
             Role = UserRole.SuperAdmin,
             IsActive = true,
-            MustChangePassword = false,
+            MustChangePassword = true,
+            PasswordChangedAt = null,
+            CreatedAt = DateTime.UtcNow,
         });
         await db.SaveChangesAsync();
-        Log.Information("Default admin account created (username: admin)");
+        Log.Information("Bootstrap admin seeded. Password change required on first login.");
     }
 }
 

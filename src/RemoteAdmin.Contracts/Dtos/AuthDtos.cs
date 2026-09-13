@@ -11,6 +11,7 @@ public sealed class LoginResponse
     public required string Token { get; set; }
     public required UserDto User { get; set; }
     public DateTime ExpiresAt { get; set; }
+    public bool MustChangePassword { get; set; }
 }
 
 public sealed class UserDto
@@ -20,6 +21,7 @@ public sealed class UserDto
     public string? Email { get; set; }
     public required string Role { get; set; }
     public bool IsActive { get; set; }
+    public bool MustChangePassword { get; set; }
     public DateTime? LastLogin { get; set; }
 }
 
