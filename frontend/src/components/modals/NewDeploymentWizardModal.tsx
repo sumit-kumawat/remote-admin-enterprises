@@ -73,18 +73,18 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
       <div className="space-y-4">
         {/* Step Indicator */}
         <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 1 ? 'text-[#0F6CBD]' : 'text-slate-400'}`}>
-            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? 'bg-[#0F6CBD] text-white' : 'bg-slate-200 text-slate-600'}`}>1</div>
+          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 1 ? 'text-[#2F3EA0]' : 'text-slate-400'}`}>
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? 'bg-[#2F3EA0] text-white' : 'bg-slate-200 text-slate-600'}`}>1</div>
             <span>Select Package</span>
           </div>
           <ChevronRight className="h-4 w-4 text-slate-300" />
-          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 2 ? 'text-[#0F6CBD]' : 'text-slate-400'}`}>
-            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 2 ? 'bg-[#0F6CBD] text-white' : 'bg-slate-200 text-slate-600'}`}>2</div>
+          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 2 ? 'text-[#2F3EA0]' : 'text-slate-400'}`}>
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 2 ? 'bg-[#2F3EA0] text-white' : 'bg-slate-200 text-slate-600'}`}>2</div>
             <span>Select Endpoints ({selectedEndpointIds.length})</span>
           </div>
           <ChevronRight className="h-4 w-4 text-slate-300" />
-          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 3 ? 'text-[#0F6CBD]' : 'text-slate-400'}`}>
-            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 3 ? 'bg-[#0F6CBD] text-white' : 'bg-slate-200 text-slate-600'}`}>3</div>
+          <div className={`flex items-center gap-2 text-xs font-semibold ${step >= 3 ? 'text-[#2F3EA0]' : 'text-slate-400'}`}>
+            <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold ${step >= 3 ? 'bg-[#2F3EA0] text-white' : 'bg-slate-200 text-slate-600'}`}>3</div>
             <span>Schedule & Wave</span>
           </div>
         </div>
@@ -159,7 +159,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                 value={endpointSearch}
                 onChange={(e) => setEndpointSearch(e.target.value)}
                 placeholder="Search hostname or IP..."
-                className="px-2.5 py-1 text-xs border border-slate-300 rounded w-48 focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                className="px-2.5 py-1 text-xs border border-slate-300 rounded w-48 focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
 
@@ -172,7 +172,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                         type="checkbox"
                         checked={endpoints.length > 0 && selectedEndpointIds.length === endpoints.length}
                         onChange={handleSelectAllEndpoints}
-                        className="rounded text-[#0F6CBD]"
+                        className="rounded text-[#2F3EA0]"
                       />
                     </th>
                     <th className="p-2">Hostname</th>
@@ -192,7 +192,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                           type="checkbox"
                           checked={selectedEndpointIds.includes(ep.id)}
                           onChange={() => handleToggleEndpoint(ep.id)}
-                          className="rounded text-[#0F6CBD]"
+                          className="rounded text-[#2F3EA0]"
                         />
                       </td>
                       <td className="p-2 font-medium text-slate-900">{ep.hostname}</td>
@@ -219,7 +219,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
             <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs space-y-1">
               <div className="font-semibold text-slate-900">Deployment Summary:</div>
               <div className="text-slate-700">
-                Package: <span className="font-medium text-[#0F6CBD]">{selectedPackage?.name} v{selectedPackage?.version}</span>
+                Package: <span className="font-medium text-[#2F3EA0]">{selectedPackage?.name} v{selectedPackage?.version}</span>
               </div>
               <div className="text-slate-700">
                 Target Endpoints: <span className="font-medium">{selectedEndpointIds.length} machines</span>
@@ -235,7 +235,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                   onChange={(e) => setWaveSize(Number(e.target.value))}
                   min={1}
                   max={100}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                 />
                 <span className="text-[10px] text-slate-500">Endpoints per wave</span>
               </div>
@@ -248,7 +248,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                   onChange={(e) => setTimeoutMinutes(Number(e.target.value))}
                   min={5}
                   max={480}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                 />
                 <span className="text-[10px] text-slate-500">Execution timeout</span>
               </div>
@@ -261,7 +261,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
                   onChange={(e) => setMaxRetries(Number(e.target.value))}
                   min={0}
                   max={5}
-                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                  className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                 />
                 <span className="text-[10px] text-slate-500">Retries on error</span>
               </div>
@@ -284,7 +284,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
               type="button"
               disabled={(step === 1 && !selectedPackageId) || (step === 2 && selectedEndpointIds.length === 0)}
               onClick={() => setStep((step + 1) as 2 | 3)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
             >
               Next <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -293,7 +293,7 @@ export const NewDeploymentWizardModal: React.FC<NewDeploymentWizardModalProps> =
               type="button"
               onClick={handleSubmit}
               disabled={createDeploymentMutation.isPending}
-              className="px-4 py-1.5 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+              className="px-4 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
             >
               {createDeploymentMutation.isPending ? 'Queuing Deployment...' : 'Queue Deployment'}
             </button>

@@ -16,7 +16,7 @@ export const ForbiddenScreen: React.FC = () => {
       </p>
       <button
         onClick={() => navigate('/dashboard')}
-        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors"
+        className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Return to Dashboard
       </button>

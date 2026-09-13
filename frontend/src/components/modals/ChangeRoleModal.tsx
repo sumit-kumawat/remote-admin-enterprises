@@ -35,7 +35,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({ user, isOpen, 
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           >
             <option value="Viewer">Viewer — Read-only access</option>
             <option value="Auditor">Auditor — View inventory & audit logs</option>
@@ -56,7 +56,7 @@ export const ChangeRoleModal: React.FC<ChangeRoleModalProps> = ({ user, isOpen, 
           <button
             type="submit"
             disabled={updateRoleMutation.isPending}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
           >
             {updateRoleMutation.isPending ? 'Updating...' : 'Save Role'}
           </button>

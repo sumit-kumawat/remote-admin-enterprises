@@ -23,14 +23,14 @@ export const DeploymentDetailPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/deployments')}
-            className="inline-flex items-center gap-1 text-[#0F6CBD] hover:underline font-medium"
+            className="inline-flex items-center gap-1 text-[#2F3EA0] hover:underline font-medium"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Deployments
           </button>
         </div>
 
         <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
-          <div className="p-3 bg-[#0F6CBD]/10 text-[#0F6CBD] rounded-md">
+          <div className="p-3 bg-[#2F3EA0]/10 text-[#2F3EA0] rounded-md">
             <Layers className="h-6 w-6" />
           </div>
           <div className="space-y-1 flex-1">

@@ -67,7 +67,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
               value={typedString}
               onChange={(e) => setTypedString(e.target.value)}
               placeholder={requireMatchString}
-              className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-300 rounded bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
         )}
@@ -86,7 +86,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             onClick={handleConfirm}
             disabled={!isMatched || isLoading}
             className={`px-3 py-1.5 text-xs font-medium text-white rounded transition-colors disabled:opacity-50 ${
-              isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0F6CBD] hover:bg-[#005a9e]'
+              isDanger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#2F3EA0] hover:bg-[#263385]'
             }`}
           >
             {isLoading ? 'Processing...' : confirmText}

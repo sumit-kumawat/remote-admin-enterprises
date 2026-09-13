@@ -50,7 +50,7 @@ export const EndpointDetailPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/endpoints')}
-            className="inline-flex items-center gap-1 text-[#0F6CBD] hover:underline font-medium"
+            className="inline-flex items-center gap-1 text-[#2F3EA0] hover:underline font-medium"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to Endpoints Inventory
           </button>
@@ -77,7 +77,7 @@ export const EndpointDetailPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4 pt-2 border-t border-slate-100">
-          <div className="p-3 bg-slate-100 rounded-lg text-[#0F6CBD]">
+          <div className="p-3 bg-slate-100 rounded-lg text-[#2F3EA0]">
             <Monitor className="h-7 w-7" />
           </div>
           <div className="space-y-1 flex-1">
@@ -114,7 +114,7 @@ export const EndpointDetailPage: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-1.5 px-4 py-2.5 border-b-2 font-medium transition-colors ${
                   isActive
-                    ? 'border-[#0F6CBD] text-[#0F6CBD] bg-white font-semibold'
+                    ? 'border-[#2F3EA0] text-[#2F3EA0] bg-white font-semibold'
                     : 'border-transparent hover:text-slate-900 hover:bg-slate-100/60'
                 }`}
               >
@@ -244,7 +244,7 @@ export const EndpointDetailPage: React.FC = () => {
                   value={softwareSearch}
                   onChange={(e) => setSoftwareSearch(e.target.value)}
                   placeholder="Filter installed software..."
-                  className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                  className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                 />
               </div>
 
@@ -295,7 +295,7 @@ export const EndpointDetailPage: React.FC = () => {
                       <span>{percent}% Used</span>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                      <div className={`h-full ${percent > 85 ? 'bg-rose-500' : 'bg-[#0F6CBD]'}`} style={{ width: `${percent}%` }} />
+                      <div className={`h-full ${percent > 85 ? 'bg-rose-500' : 'bg-[#2F3EA0]'}`} style={{ width: `${percent}%` }} />
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-500 font-mono">
                       <span>Free: {free} GB</span>

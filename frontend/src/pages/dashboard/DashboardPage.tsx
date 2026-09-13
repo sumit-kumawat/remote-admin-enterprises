@@ -78,7 +78,7 @@ export const DashboardPage: React.FC = () => {
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50 shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50 shadow-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
             <span>{isRefetching ? 'Refetching...' : 'Refresh Metrics'}</span>
@@ -91,7 +91,7 @@ export const DashboardPage: React.FC = () => {
         <div className="p-3 bg-white border border-slate-200 rounded-md shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500">
             <span className="font-semibold text-[11px]">Total Endpoints</span>
-            <Monitor className="h-4 w-4 text-[#0F6CBD]" />
+            <Monitor className="h-4 w-4 text-[#2F3EA0]" />
           </div>
           <div className="text-xl font-bold text-slate-900">{stats.totalEndpoints}</div>
           <div className="text-[10px] text-slate-400">Managed inventory</div>
@@ -136,7 +136,7 @@ export const DashboardPage: React.FC = () => {
         <div className="p-3 bg-white border border-slate-200 rounded-md shadow-xs space-y-1">
           <div className="flex items-center justify-between text-slate-500">
             <span className="font-semibold text-[11px]">Agent Healthy</span>
-            <CheckCircle className="h-4 w-4 text-[#0F6CBD]" />
+            <CheckCircle className="h-4 w-4 text-[#2F3EA0]" />
           </div>
           <div className="text-xl font-bold text-slate-900">{stats.agentHealthy}</div>
           <div className="text-[10px] text-slate-400">Healthy worker agents</div>
@@ -180,7 +180,7 @@ export const DashboardPage: React.FC = () => {
                 <XAxis dataKey="time" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Line type="monotone" dataKey="heartbeats" stroke="#0F6CBD" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="heartbeats" stroke="#2F3EA0" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -196,7 +196,7 @@ export const DashboardPage: React.FC = () => {
                 <XAxis dataKey="os" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#0F6CBD" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="count" fill="#2F3EA0" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -223,7 +223,7 @@ export const DashboardPage: React.FC = () => {
                 <tr key={log.id} className="hover:bg-slate-50">
                   <td className="p-2 text-slate-500 font-mono text-[11px]">{new Date(log.timestamp).toLocaleTimeString()}</td>
                   <td className="p-2 font-medium text-slate-900">{log.actor}</td>
-                  <td className="p-2 font-semibold text-[#0F6CBD]">{log.action}</td>
+                  <td className="p-2 font-semibold text-[#2F3EA0]">{log.action}</td>
                   <td className="p-2 font-mono text-slate-700">{log.target}</td>
                   <td className="p-2">
                     <StatusBadge status={log.result} size="sm" />

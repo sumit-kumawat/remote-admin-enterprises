@@ -42,7 +42,7 @@ export const ImportEndpointsModal: React.FC<ImportEndpointsModalProps> = ({ isOp
           <p className="text-[11px] text-slate-500 font-mono">Example: server01.corp.local or 10.10.10.25</p>
         </div>
 
-        <div className="border-2 border-dashed border-slate-300 hover:border-[#0F6CBD] rounded-lg p-6 text-center bg-slate-50/50 transition-colors">
+        <div className="border-2 border-dashed border-slate-300 hover:border-[#2F3EA0] rounded-lg p-6 text-center bg-slate-50/50 transition-colors">
           <input
             type="file"
             id="endpoint-file-input"
@@ -51,7 +51,7 @@ export const ImportEndpointsModal: React.FC<ImportEndpointsModalProps> = ({ isOp
             className="hidden"
           />
           <label htmlFor="endpoint-file-input" className="cursor-pointer flex flex-col items-center gap-2">
-            <FileUp className="h-8 w-8 text-[#0F6CBD]" />
+            <FileUp className="h-8 w-8 text-[#2F3EA0]" />
             <span className="font-semibold text-slate-800 text-xs">
               {selectedFile ? selectedFile.name : 'Click to select .txt or .csv file'}
             </span>
@@ -77,7 +77,7 @@ export const ImportEndpointsModal: React.FC<ImportEndpointsModalProps> = ({ isOp
           <button
             type="submit"
             disabled={!selectedFile || importMutation.isPending}
-            className="px-4 py-1.5 font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+            className="px-4 py-1.5 font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
           >
             {importMutation.isPending ? 'Importing & Resolving IPs...' : 'Import Endpoints'}
           </button>

@@ -85,7 +85,7 @@ export const ChangePasswordPage: React.FC = () => {
                 type="password"
                 {...register('currentPassword')}
                 placeholder="Enter current password (e.g. Adm1n@123)"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
             {errors.currentPassword && <p className="text-xs text-rose-600 mt-1">{errors.currentPassword.message}</p>}
@@ -102,7 +102,7 @@ export const ChangePasswordPage: React.FC = () => {
                 type="password"
                 {...register('newPassword')}
                 placeholder="Enter new password (at least 8 chars)"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
             {errors.newPassword && <p className="text-xs text-rose-600 mt-1">{errors.newPassword.message}</p>}
@@ -119,7 +119,7 @@ export const ChangePasswordPage: React.FC = () => {
                 type="password"
                 {...register('newPasswordConfirmation')}
                 placeholder="Confirm new password"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
               />
             </div>
             {errors.newPasswordConfirmation && (
@@ -130,7 +130,7 @@ export const ChangePasswordPage: React.FC = () => {
           <button
             type="submit"
             disabled={changePasswordMutation.isPending}
-            className="w-full py-2.5 px-4 bg-[#0F6CBD] hover:bg-[#005a9e] text-white font-semibold text-xs rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0F6CBD] disabled:opacity-50"
+            className="w-full py-2.5 px-4 bg-[#2F3EA0] hover:bg-[#263385] text-white font-semibold text-xs rounded transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2F3EA0] disabled:opacity-50"
           >
             {changePasswordMutation.isPending ? 'Updating Password...' : 'Update Password & Continue'}
           </button>

@@ -49,7 +49,7 @@ export const UsersPage: React.FC = () => {
           </button>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors shadow-xs"
           >
             <UserPlus className="h-4 w-4" /> Add User
           </button>
@@ -77,7 +77,7 @@ export const UsersPage: React.FC = () => {
                     <div className="font-semibold text-slate-900">{u.username}</div>
                     <div className="text-[11px] text-slate-500">{u.email || 'No email registered'}</div>
                   </td>
-                  <td className="p-2.5 font-semibold text-[#0F6CBD]">
+                  <td className="p-2.5 font-semibold text-[#2F3EA0]">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-blue-800 text-xs">
                       <Shield className="h-3 w-3" /> {u.role}
                     </span>

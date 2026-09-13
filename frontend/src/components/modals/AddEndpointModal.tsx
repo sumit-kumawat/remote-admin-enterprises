@@ -104,7 +104,7 @@ export const AddEndpointModal: React.FC<AddEndpointModalProps> = ({ isOpen, onCl
               type="text"
               {...register('location')}
               placeholder="e.g. Building A - Floor 3"
-              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
 
@@ -114,7 +114,7 @@ export const AddEndpointModal: React.FC<AddEndpointModalProps> = ({ isOpen, onCl
               type="text"
               {...register('description')}
               placeholder="e.g. Executive Laptop"
-              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
           </div>
         </div>
@@ -130,7 +130,7 @@ export const AddEndpointModal: React.FC<AddEndpointModalProps> = ({ isOpen, onCl
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
           >
             {createMutation.isPending ? 'Registering...' : 'Register Endpoint'}
           </button>

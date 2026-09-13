@@ -20,7 +20,7 @@ export const NotificationsDrawer: React.FC<NotificationsDrawerProps> = ({ isOpen
       <div className="w-80 bg-white border-l border-slate-300 shadow-2xl flex flex-col h-full text-xs font-sans">
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center gap-2 font-semibold text-slate-900">
-            <Bell className="h-4 w-4 text-[#0F6CBD]" />
+            <Bell className="h-4 w-4 text-[#2F3EA0]" />
             <span>Notifications</span>
           </div>
           <button onClick={onClose} aria-label="Close notifications drawer" className="text-slate-400 hover:text-slate-700">

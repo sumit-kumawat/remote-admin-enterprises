@@ -50,8 +50,17 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-echo "Starting Backend API on http://localhost:5000 ..."
+echo "Starting Backend API on http://0.0.0.0:5000 ..."
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/RemoteAdmin.Api &
+
+echo "Waiting for Backend API to start listening on http://127.0.0.1:5000 ..."
+for i in {1..30}; do
+    if curl -s http://127.0.0.1:5000/health >/dev/null 2>&1 || curl -s http://127.0.0.1:5000/api >/dev/null 2>&1; then
+        echo "Backend API is ready and listening!"
+        break
+    fi
+    sleep 1
+done
 
 echo "Starting Frontend Dev Server on http://localhost:3000 ..."
 cd frontend

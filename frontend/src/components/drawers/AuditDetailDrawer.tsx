@@ -33,7 +33,7 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center gap-2 font-semibold text-slate-900">
-            <FileText className="h-4 w-4 text-[#0F6CBD]" />
+            <FileText className="h-4 w-4 text-[#2F3EA0]" />
             <span>Audit Record Details</span>
           </div>
           <button onClick={onClose} aria-label="Close audit detail drawer" className="text-slate-400 hover:text-slate-700">
@@ -73,7 +73,7 @@ export const AuditDetailDrawer: React.FC<AuditDetailDrawerProps> = ({ auditEntry
               <div className="flex items-center gap-1.5 text-slate-500 text-[11px]">
                 <Shield className="h-3 w-3" /> Action
               </div>
-              <div className="font-semibold text-[#0F6CBD]">{auditEntry.action}</div>
+              <div className="font-semibold text-[#2F3EA0]">{auditEntry.action}</div>
             </div>
 
             <div className="space-y-1 col-span-2">

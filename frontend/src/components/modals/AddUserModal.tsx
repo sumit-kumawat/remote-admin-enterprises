@@ -73,7 +73,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
             type="text"
             {...register('username')}
             placeholder="e.g. operator1"
-            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           />
           {errors.username && <p className="text-xs text-rose-600 mt-0.5">{errors.username.message}</p>}
         </div>
@@ -84,7 +84,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
             type="email"
             {...register('email')}
             placeholder="e.g. operator1@enterprise.local"
-            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           />
           {errors.email && <p className="text-xs text-rose-600 mt-0.5">{errors.email.message}</p>}
         </div>
@@ -95,7 +95,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
           </label>
           <select
             {...register('role')}
-            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+            className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
           >
             <option value="Viewer">Viewer — Read-only console access</option>
             <option value="Auditor">Auditor — View inventory & audit logs</option>
@@ -115,7 +115,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
               type="password"
               {...register('password')}
               placeholder="••••••••"
-              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
             {errors.password && <p className="text-xs text-rose-600 mt-0.5">{errors.password.message}</p>}
           </div>
@@ -128,7 +128,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
               type="password"
               {...register('passwordConfirmation')}
               placeholder="••••••••"
-              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             />
             {errors.passwordConfirmation && (
               <p className="text-xs text-rose-600 mt-0.5">{errors.passwordConfirmation.message}</p>
@@ -147,7 +147,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-medium text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Account'}
           </button>

@@ -59,7 +59,7 @@ export const DeploymentsPage: React.FC = () => {
           </button>
           <button
             onClick={() => setIsWizardOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors shadow-xs"
           >
             <Plus className="h-4 w-4" /> New Deployment Wizard
           </button>
@@ -73,7 +73,7 @@ export const DeploymentsPage: React.FC = () => {
             onClick={() => setActiveTab('deployments')}
             className={`flex items-center gap-1.5 px-4 py-2.5 border-b-2 font-medium transition-colors ${
               activeTab === 'deployments'
-                ? 'border-[#0F6CBD] text-[#0F6CBD] bg-white font-semibold'
+                ? 'border-[#2F3EA0] text-[#2F3EA0] bg-white font-semibold'
                 : 'border-transparent hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -85,7 +85,7 @@ export const DeploymentsPage: React.FC = () => {
             onClick={() => setActiveTab('packages')}
             className={`flex items-center gap-1.5 px-4 py-2.5 border-b-2 font-medium transition-colors ${
               activeTab === 'packages'
-                ? 'border-[#0F6CBD] text-[#0F6CBD] bg-white font-semibold'
+                ? 'border-[#2F3EA0] text-[#2F3EA0] bg-white font-semibold'
                 : 'border-transparent hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -113,7 +113,7 @@ export const DeploymentsPage: React.FC = () => {
                   {deployments.map((job) => (
                     <tr key={job.id} className="hover:bg-slate-50">
                       <td className="p-2.5 font-bold text-slate-900">{job.endpoint?.hostname || job.endpointId}</td>
-                      <td className="p-2.5 font-medium text-[#0F6CBD]">
+                      <td className="p-2.5 font-medium text-[#2F3EA0]">
                         {job.packageName} v{job.packageVersion}
                       </td>
                       <td className="p-2.5">
@@ -145,7 +145,7 @@ export const DeploymentsPage: React.FC = () => {
                       value={pkgName}
                       onChange={(e) => setPkgName(e.target.value)}
                       placeholder="e.g. 7-Zip Enterprise"
-                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                     />
                   </div>
                   <div>
@@ -155,7 +155,7 @@ export const DeploymentsPage: React.FC = () => {
                       value={pkgVersion}
                       onChange={(e) => setPkgVersion(e.target.value)}
                       placeholder="e.g. 23.01"
-                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
                     />
                   </div>
                   <div>
@@ -171,7 +171,7 @@ export const DeploymentsPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={!selectedFile || uploadMutation.isPending}
-                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#0F6CBD] hover:bg-[#005a9e] rounded transition-colors disabled:opacity-50"
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50"
                     >
                       <Upload className="h-3.5 w-3.5" /> Upload Package
                     </button>

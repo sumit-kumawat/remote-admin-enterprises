@@ -48,7 +48,7 @@ export const AuditLogPage: React.FC = () => {
             <select
               value={actorFilter}
               onChange={(e) => setActorFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             >
               <option value="All">All Actors</option>
               <option value="admin">admin</option>
@@ -62,7 +62,7 @@ export const AuditLogPage: React.FC = () => {
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             >
               <option value="All">All Actions</option>
               <option value="Login">Login</option>
@@ -81,7 +81,7 @@ export const AuditLogPage: React.FC = () => {
             <select
               value={resultFilter}
               onChange={(e) => setResultFilter(e.target.value)}
-              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6CBD]"
+              className="px-2.5 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
             >
               <option value="All">All Results</option>
               <option value="Success">Success</option>
@@ -122,7 +122,7 @@ export const AuditLogPage: React.FC = () => {
                       {new Date(log.timestamp).toUTCString()}
                     </td>
                     <td className="p-2.5 font-semibold text-slate-900">{log.actor}</td>
-                    <td className="p-2.5 font-semibold text-[#0F6CBD]">{log.action}</td>
+                    <td className="p-2.5 font-semibold text-[#2F3EA0]">{log.action}</td>
                     <td className="p-2.5 font-mono text-slate-700">{log.target}</td>
                     <td className="p-2.5">
                       <StatusBadge status={log.result} size="sm" />
@@ -131,7 +131,7 @@ export const AuditLogPage: React.FC = () => {
                     <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setSelectedAudit(log)}
-                        className="inline-flex items-center gap-1 text-[#0F6CBD] font-medium hover:underline text-[11px]"
+                        className="inline-flex items-center gap-1 text-[#2F3EA0] font-medium hover:underline text-[11px]"
                       >
                         Inspect Payload <ChevronRight className="h-3 w-3" />
                       </button>
