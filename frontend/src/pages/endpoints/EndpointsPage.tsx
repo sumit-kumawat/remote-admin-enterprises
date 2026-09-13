@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useEndpointsList, useBulkAction, useCreateLocalAdmin } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
@@ -7,6 +7,7 @@ import { ErrorState } from '../../components/common/ErrorState';
 import { EmptyState } from '../../components/common/EmptyState';
 import { AddEndpointModal } from '../../components/modals/AddEndpointModal';
 import { ImportEndpointsModal } from '../../components/modals/ImportEndpointsModal';
+import { EndpointDetailDrawer } from '../../components/drawers/EndpointDetailDrawer';
 import { DeviceIcon } from '../../components/common/DeviceIcon';
 import { toast } from '../../store/useToastStore';
 import {
@@ -27,7 +28,6 @@ import {
 
 export const EndpointsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const initialSearch = searchParams.get('search') || '';
   const [search, setSearch] = useState(initialSearch);
@@ -36,6 +36,7 @@ export const EndpointsPage: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedDrawerEndpointId, setSelectedDrawerEndpointId] = useState<string | null>(null);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<string[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -224,7 +225,7 @@ export const EndpointsPage: React.FC = () => {
                   <th className="p-2.5">Authorization</th>
                   <th className="p-2.5">Login User</th>
                   <th className="p-2.5">Operating System</th>
-                  <th className="p-2.5 text-left">Action</th>
+                  <th className="p-2.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
@@ -237,7 +238,7 @@ export const EndpointsPage: React.FC = () => {
                   return (
                     <tr
                       key={ep.id}
-                      onClick={() => navigate(`/endpoints/${ep.id}`)}
+                      onClick={() => setSelectedDrawerEndpointId(ep.id)}
                       className={`hover:bg-slate-50 cursor-pointer transition-colors ${
                         isSelected ? 'bg-blue-50/50' : ''
                       }`}
@@ -353,8 +354,8 @@ export const EndpointsPage: React.FC = () => {
                       {/* Action Column */}
                       <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => navigate(`/endpoints/${ep.id}`)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs"
+                          onClick={() => setSelectedDrawerEndpointId(ep.id)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs cursor-pointer"
                         >
                           <span>Manage Endpoint</span> <ExternalLink className="h-3 w-3" />
                         </button>
@@ -376,6 +377,12 @@ export const EndpointsPage: React.FC = () => {
 
       <AddEndpointModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
       <ImportEndpointsModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+      <EndpointDetailDrawer
+        endpointId={selectedDrawerEndpointId}
+        isOpen={Boolean(selectedDrawerEndpointId)}
+        onClose={() => setSelectedDrawerEndpointId(null)}
+      />
     </div>
   );
 };
+

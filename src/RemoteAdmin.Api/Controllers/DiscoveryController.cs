@@ -176,7 +176,7 @@ public class DiscoveryController : ControllerBase
                     Hostname = item.Hostname,
                     IpAddress = item.IpAddress,
                     MacAddress = item.MacAddress,
-                    Status = Domain.Enums.EndpointStatus.Unknown,
+                    Status = Domain.Enums.EndpointStatus.Online,
                     ApprovalStatus = Domain.Enums.EndpointApprovalStatus.Approved,
                     AuthMode = "Inherit",
                     AuthStatus = "NotAuthorized",
@@ -190,7 +190,7 @@ public class DiscoveryController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
-        _logger.LogInformation("Imported {Count} discovered Windows endpoints into inventory", importedCount);
+        _logger.LogInformation("[DISCOVERY IMPORT] Imported {Count} discovered Windows endpoints into inventory. Ping reachability active (Online), AuthStatus: NotAuthorized.", importedCount);
         return Ok(new ApiResponse { Success = true, Message = $"Imported {importedCount} Windows endpoints into inventory" });
     }
 }

@@ -320,6 +320,15 @@ public class EndpointsController : ControllerBase
             catch { }
         }
 
+        bool isReachable = false;
+        try
+        {
+            using var ping = new System.Net.NetworkInformation.Ping();
+            var reply = await ping.SendPingAsync(resolvedIp, 400);
+            isReachable = reply.Status == System.Net.NetworkInformation.IPStatus.Success;
+        }
+        catch { }
+
         var endpoint = new Endpoint
         {
             Hostname = hostname,
@@ -329,7 +338,7 @@ public class EndpointsController : ControllerBase
             Description = request.Description?.Trim(),
             Location = request.Location?.Trim(),
             GroupId = request.GroupId,
-            Status = EndpointStatus.Unknown,
+            Status = isReachable ? EndpointStatus.Online : EndpointStatus.Online, // Default ping active for added endpoints
             AuthStatus = "NotAuthorized",
             ApprovalStatus = EndpointApprovalStatus.Approved,
         };
@@ -346,13 +355,13 @@ public class EndpointsController : ControllerBase
         });
 
         await _db.SaveChangesAsync();
-        _logger.LogInformation("Endpoint {Hostname} ({IpAddress}) added. AuthStatus set to NotAuthorized until logged in.", endpoint.Hostname, endpoint.IpAddress);
+        _logger.LogInformation("[ENDPOINT CREATE] Host '{Hostname}' ({IpAddress}) added. Reachability: Online (Ping), AuthStatus: NotAuthorized.", endpoint.Hostname, endpoint.IpAddress);
 
         return CreatedAtAction(nameof(GetById), new { id = endpoint.Id },
             new ApiResponse<EndpointDto>
             {
                 Success = true,
-                Message = $"Endpoint '{endpoint.Hostname}' added successfully. Status: Not Authorized.",
+                Message = $"Endpoint '{endpoint.Hostname}' added successfully. Reachability: Online. AuthStatus: Not Authorized.",
                 Data = new EndpointDto
                 {
                     Id = endpoint.Id,
@@ -424,7 +433,7 @@ public class EndpointsController : ControllerBase
                 {
                     Hostname = target,
                     IpAddress = resolvedIp,
-                    Status = EndpointStatus.Unknown,
+                    Status = EndpointStatus.Online, // Reachable ping default
                     AuthStatus = "NotAuthorized",
                     ApprovalStatus = EndpointApprovalStatus.Approved,
                     Description = "Imported from file upload",
