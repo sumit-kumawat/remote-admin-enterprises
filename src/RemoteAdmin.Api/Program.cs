@@ -129,7 +129,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IOuiVendorLookupService, RemoteAdmin.Infrastructure.Services.OuiVendorLookupService>();
 builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IDiscoveryScanEngine, RemoteAdmin.Infrastructure.Services.DiscoveryScanEngine>();
-builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IDiscoveryHubNotifier, RemoteAdmin.Api.Hubs.DiscoveryHubNotifier>();
+builder.Services.AddSingleton<RemoteAdmin.Application.Interfaces.IDiscoveryHubNotifier, RemoteAdmin.Api.Hubs.DiscoveryHubNotifier>();
 
 // Windows Management Service
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IWindowsManagementService, RemoteAdmin.Infrastructure.Services.WindowsManagementService>();
