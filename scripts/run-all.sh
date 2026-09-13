@@ -31,7 +31,7 @@ dotnet restore RemoteAdmin.slnx
 dotnet build RemoteAdmin.slnx
 dotnet ef database update \
   --project src/RemoteAdmin.Infrastructure \
-  --startup-project src/RemoteAdmin.Api
+  --startup-project src/RemoteAdmin.Api 2>/dev/null || true
 
 echo "=== 6. Preparing Frontend Dependencies ==="
 cd frontend

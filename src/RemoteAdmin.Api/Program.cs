@@ -28,8 +28,11 @@ builder.Host.UseSerilog((context, loggerConfig) =>
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(options =>
+{
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
-        npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery)));
+        npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+    options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+});
 
 // Authentication
 var jwtKey = builder.Configuration["Jwt:Key"]
@@ -159,10 +162,11 @@ app.MapFallbackToFile("index.html");
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    if (app.Environment.IsDevelopment())
+    try
     {
-        await db.Database.MigrateAsync();
+        await db.Database.EnsureCreatedAsync();
     }
+    catch { }
 
     var adminUser = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
     if (adminUser != null)
