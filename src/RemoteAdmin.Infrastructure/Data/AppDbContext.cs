@@ -26,6 +26,13 @@ public class AppDbContext : DbContext
     public DbSet<DiscoveryHost> DiscoveryHosts => Set<DiscoveryHost>();
     public DbSet<DiscoveryScanEvent> DiscoveryScanEvents => Set<DiscoveryScanEvent>();
     public DbSet<DiscoverySchedule> DiscoverySchedules => Set<DiscoverySchedule>();
+    public DbSet<KmsHost> KmsHosts => Set<KmsHost>();
+    public DbSet<ActivationRecord> ActivationRecords => Set<ActivationRecord>();
+    public DbSet<ActivationPolicy> ActivationPolicies => Set<ActivationPolicy>();
+    public DbSet<ActivationWave> ActivationWaves => Set<ActivationWave>();
+    public DbSet<ActivationWaveItem> ActivationWaveItems => Set<ActivationWaveItem>();
+    public DbSet<OfflineTransferPackage> OfflineTransferPackages => Set<OfflineTransferPackage>();
+    public DbSet<LicenseComplianceRecord> LicenseComplianceRecords => Set<LicenseComplianceRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -167,6 +174,73 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CronExpression).HasMaxLength(100);
             entity.Property(e => e.TargetCidr).HasMaxLength(100);
             entity.Property(e => e.CreatedBy).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<KmsHost>(entity =>
+        {
+            entity.HasIndex(e => e.Hostname).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Hostname).HasMaxLength(255);
+            entity.Property(e => e.IpAddress).HasMaxLength(100);
+            entity.Property(e => e.Fqdn).HasMaxLength(255);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.Environment).HasMaxLength(100);
+            entity.Property(e => e.Site).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ActivationRecord>(entity =>
+        {
+            entity.HasIndex(e => new { e.EndpointId, e.ProductFamily }).IsUnique();
+            entity.Property(e => e.ProductFamily).HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.ActivationStatus).HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.ActivationType).HasConversion<string>().HasMaxLength(30);
+            entity.Property(e => e.ProductName).HasMaxLength(255);
+            entity.Property(e => e.ProductVersion).HasMaxLength(100);
+            entity.Property(e => e.Edition).HasMaxLength(100);
+            entity.Property(e => e.Channel).HasMaxLength(100);
+            entity.Property(e => e.PartialProductKey).HasMaxLength(50);
+            entity.HasOne(e => e.Endpoint)
+                .WithMany()
+                .HasForeignKey(e => e.EndpointId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.KmsHost)
+                .WithMany()
+                .HasForeignKey(e => e.KmsHostId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ActivationWave>(entity =>
+        {
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.TargetProductFamily).HasConversion<string>().HasMaxLength(30);
+            entity.HasOne(e => e.KmsHost)
+                .WithMany()
+                .HasForeignKey(e => e.KmsHostId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ActivationWaveItem>(entity =>
+        {
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.HasOne(e => e.Wave)
+                .WithMany(w => w.Items)
+                .HasForeignKey(e => e.WaveId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Endpoint)
+                .WithMany()
+                .HasForeignKey(e => e.EndpointId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<OfflineTransferPackage>(entity =>
+        {
+            entity.HasIndex(e => e.PackageId).IsUnique();
+            entity.Property(e => e.PackageId).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.PackageHash).HasMaxLength(256);
+            entity.Property(e => e.SourceEnvironment).HasMaxLength(100);
+            entity.Property(e => e.TargetEnvironment).HasMaxLength(100);
         });
     }
 }

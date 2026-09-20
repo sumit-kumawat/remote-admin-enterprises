@@ -12,6 +12,7 @@ import { EndpointDetailPage } from '../pages/endpoints/EndpointDetailPage';
 import { UsersPage } from '../pages/users/UsersPage';
 import { DeploymentsPage } from '../pages/deployments/DeploymentsPage';
 import { DeploymentDetailPage } from '../pages/deployments/DeploymentDetailPage';
+import { KmsManagementPage } from '../pages/licensing/KmsManagementPage';
 
 // Discovery Sub-Pages
 import { DiscoveryConsolePage } from '../pages/discovery/DiscoveryConsolePage';
@@ -60,6 +61,7 @@ export const AppRoutes: React.FC = () => {
         />
         <Route path="/deployments" element={<DeploymentsPage />} />
         <Route path="/deployments/:id" element={<DeploymentDetailPage />} />
+        <Route path="/licensing" element={<KmsManagementPage />} />
 
         {/* Discovery Routes */}
         <Route path="/discovery" element={<DiscoveryConsolePage />} />

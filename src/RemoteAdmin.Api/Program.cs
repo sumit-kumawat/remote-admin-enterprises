@@ -138,6 +138,16 @@ builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IOuiVendorLook
 builder.Services.AddSingleton<RemoteAdmin.Infrastructure.Services.IDiscoveryScanEngine, RemoteAdmin.Infrastructure.Services.DiscoveryScanEngine>();
 builder.Services.AddSingleton<RemoteAdmin.Application.Interfaces.IDiscoveryHubNotifier, RemoteAdmin.Api.Hubs.DiscoveryHubNotifier>();
 
+// Audit & Licensing Services
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IAuditLogService, RemoteAdmin.Infrastructure.Services.AuditLogService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IKmsManagementService, RemoteAdmin.Infrastructure.Services.Licensing.KmsManagementService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IKmsHealthService, RemoteAdmin.Infrastructure.Services.Licensing.KmsHealthService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IWindowsActivationService, RemoteAdmin.Infrastructure.Services.Licensing.WindowsActivationService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IOfficeActivationService, RemoteAdmin.Infrastructure.Services.Licensing.OfficeActivationService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IActivationWaveService, RemoteAdmin.Infrastructure.Services.Licensing.ActivationWaveService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IOfflinePackageService, RemoteAdmin.Infrastructure.Services.Licensing.OfflinePackageService>();
+builder.Services.AddSingleton<RemoteAdmin.Api.Hubs.ILicensingHubNotifier, RemoteAdmin.Api.Hubs.LicensingHubNotifier>();
+
 // Windows Management Service
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IWindowsManagementService, RemoteAdmin.Infrastructure.Services.WindowsManagementService>();
 
@@ -179,6 +189,7 @@ app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHub<RemoteAdmin.Api.Hubs.DiscoveryHub>("/hubs/discovery");
+app.MapHub<RemoteAdmin.Api.Hubs.LicensingHub>("/hubs/licensing");
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Redirect("/swagger"));
 app.MapGet("/api", () => Results.Redirect("/swagger"));

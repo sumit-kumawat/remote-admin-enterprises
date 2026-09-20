@@ -9,6 +9,7 @@ import { Modal } from '../common/Modal';
 import { DeviceIcon } from '../common/DeviceIcon';
 import { toast } from '../../store/useToastStore';
 import type { EndpointDetailDto } from '../../types/api';
+import { licensingApi, type ActivationRecordItem } from '../../api/licensingApi';
 import {
   X,
   Monitor,
@@ -23,6 +24,8 @@ import {
   Shield,
   RefreshCw,
   AlertTriangle,
+  KeyRound,
+  Building2,
 } from 'lucide-react';
 
 interface EndpointDetailDrawerProps {
@@ -37,8 +40,14 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
   onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'login' | 'accounts' | 'security' | 'power' | 'network' | 'software' | 'drives'
+    'overview' | 'licensing' | 'login' | 'accounts' | 'security' | 'power' | 'network' | 'software' | 'drives'
   >('overview');
+
+  const [licensingData, setLicensingData] = useState<{ windows: ActivationRecordItem | null; office: ActivationRecordItem | null } | null>(null);
+  const [isLoadingLicensing, setIsLoadingLicensing] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [kmsConfigModalOpen, setKmsConfigModalOpen] = useState(false);
+  const [kmsHostnameInput, setKmsHostnameInput] = useState('');
 
   const [softwareSearch] = useState('');
 
@@ -80,12 +89,60 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
     }
   }, [isOpen]);
 
+  const loadLicensingData = async () => {
+    if (!endpointId) return;
+    setIsLoadingLicensing(true);
+    try {
+      const data = await licensingApi.getEndpointActivation(endpointId);
+      setLicensingData(data);
+    } catch {
+      setLicensingData(null);
+    } finally {
+      setIsLoadingLicensing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && endpointId && activeTab === 'licensing') {
+      loadLicensingData();
+    }
+  }, [isOpen, endpointId, activeTab]);
+
   useEffect(() => {
     if (endpoint) {
       setSelectedAuthMode(endpoint.authMode || 'Inherit');
       setSelectedProfileId(endpoint.credentialProfileId || '');
     }
   }, [endpoint]);
+
+  const handleCheckActivation = async () => {
+    if (!endpointId) return;
+    setIsActivating(true);
+    try {
+      toast.info('Dispatching Licensing Check Job...', `Checking Windows & Office activation on endpoint`);
+      await licensingApi.triggerActivationCheck(endpointId);
+      toast.success('Activation Check Dispatched', 'Agent job queued successfully.');
+      loadLicensingData();
+    } catch (err: any) {
+      toast.error('Check Failed', err?.message || 'Failed to dispatch activation check');
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const handleConfigureKmsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!endpointId || !kmsHostnameInput.trim()) return;
+    try {
+      await licensingApi.configureKmsClient(endpointId, kmsHostnameInput.trim());
+      toast.success('KMS Host Configured', `KMS Client host set to '${kmsHostnameInput}'`);
+      setKmsConfigModalOpen(false);
+      setKmsHostnameInput('');
+      loadLicensingData();
+    } catch (err: any) {
+      toast.error('Configuration Failed', err?.message || 'Failed to configure KMS host');
+    }
+  };
 
   if (!isOpen || !endpointId) return null;
 
@@ -251,6 +308,7 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
             <div className="flex border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 overflow-x-auto rounded-t-md">
               {[
                 { id: 'overview', label: 'Overview', icon: Monitor },
+                { id: 'licensing', label: 'Licensing & KMS', icon: KeyRound },
                 { id: 'login', label: 'Login & Credentials', icon: Key },
                 { id: 'accounts', label: `Local Accounts (${localAccounts.length})`, icon: UserCheck },
                 { id: 'security', label: `Security Software (${securitySoftware.length})`, icon: Shield },
@@ -322,6 +380,92 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                     <span className="font-mono text-emerald-700 font-semibold">{endpoint.systemUptime || 'Unavailable'}</span>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'licensing' && (
+              <div className="space-y-4">
+                {/* Action Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 p-3 border rounded">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-[#2F3EA0]" />
+                    <span className="font-bold text-slate-900">Microsoft Volume Licensing Status</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCheckActivation}
+                      disabled={isActivating}
+                      className="px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 text-[#2F3EA0] ${isActivating ? 'animate-spin' : ''}`} />
+                      Check Activation
+                    </button>
+                    <button
+                      onClick={() => setKmsConfigModalOpen(true)}
+                      className="px-3 py-1.5 bg-[#2F3EA0] text-white rounded text-xs font-semibold hover:bg-[#253285] flex items-center gap-1 cursor-pointer"
+                    >
+                      Configure KMS Host
+                    </button>
+                  </div>
+                </div>
+
+                {isLoadingLicensing && <LoadingSkeleton rows={4} />}
+
+                {!isLoadingLicensing && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Windows License */}
+                    <div className="p-4 border rounded bg-white space-y-2.5 shadow-xs">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                          <Monitor className="h-4 w-4 text-[#2F3EA0]" /> Windows Operating System
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          licensingData?.windows?.activationStatus === 'Activated' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
+                        }`}>
+                          {licensingData?.windows?.activationStatus || 'Unknown'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        <span className="text-slate-500">Edition:</span>
+                        <span className="font-semibold text-slate-800">{licensingData?.windows?.edition || 'Windows 10/11 Enterprise'}</span>
+                        <span className="text-slate-500">Channel:</span>
+                        <span className="font-medium text-slate-700">{licensingData?.windows?.channel || 'VOLUME_KMSCLIENT'}</span>
+                        <span className="text-slate-500">KMS Host:</span>
+                        <span className="font-mono text-blue-900 font-semibold">{licensingData?.windows?.kmsHostAddress || 'DNS Auto-Discovery'}</span>
+                        <span className="text-slate-500">Partial Key:</span>
+                        <span className="font-mono">{licensingData?.windows?.partialProductKey || '*****'}</span>
+                        <span className="text-slate-500">Last Checked:</span>
+                        <span className="text-slate-600">{licensingData?.windows?.lastCheckedAt ? new Date(licensingData.windows.lastCheckedAt).toLocaleString() : 'Never'}</span>
+                      </div>
+                    </div>
+
+                    {/* Office License */}
+                    <div className="p-4 border rounded bg-white space-y-2.5 shadow-xs">
+                      <div className="flex justify-between items-center border-b pb-2">
+                        <h4 className="font-bold text-slate-900 flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-purple-600" /> Microsoft Office
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          licensingData?.office?.activationStatus === 'Activated' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
+                        }`}>
+                          {licensingData?.office?.activationStatus || 'Unknown'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        <span className="text-slate-500">Product:</span>
+                        <span className="font-semibold text-slate-800">{licensingData?.office?.edition || 'Office LTSC 2024'}</span>
+                        <span className="text-slate-500">Activation Type:</span>
+                        <span className="font-medium text-slate-700">{licensingData?.office?.activationType || 'KMS'}</span>
+                        <span className="text-slate-500">KMS Host:</span>
+                        <span className="font-mono text-purple-900 font-semibold">{licensingData?.office?.kmsHostAddress || 'DNS Auto-Discovery'}</span>
+                        <span className="text-slate-500">Partial Key:</span>
+                        <span className="font-mono">{licensingData?.office?.partialProductKey || '*****'}</span>
+                        <span className="text-slate-500">Last Checked:</span>
+                        <span className="text-slate-600">{licensingData?.office?.lastCheckedAt ? new Date(licensingData.office.lastCheckedAt).toLocaleString() : 'Never'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -608,6 +752,41 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                 className="px-3 py-1.5 bg-[#2F3EA0] text-white rounded font-semibold cursor-pointer disabled:opacity-50"
               >
                 {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+        {/* Modal: Configure KMS Host */}
+        <Modal
+          isOpen={kmsConfigModalOpen}
+          onClose={() => setKmsConfigModalOpen(false)}
+          title={`Configure KMS Host for ${endpoint?.hostname}`}
+        >
+          <form onSubmit={handleConfigureKmsSubmit} className="space-y-3 font-sans text-xs">
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">KMS Hostname / FQDN *</label>
+              <input
+                type="text"
+                required
+                value={kmsHostnameInput}
+                onChange={(e) => setKmsHostnameInput(e.target.value)}
+                placeholder="e.g. kms1.domain.local"
+                className="w-full p-2 border rounded font-mono text-xs"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setKmsConfigModalOpen(false)}
+                className="px-3 py-1.5 bg-slate-100 border rounded font-semibold text-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-[#2F3EA0] text-white rounded font-semibold cursor-pointer"
+              >
+                Save KMS Host
               </button>
             </div>
           </form>

@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
+  KeyRound,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -24,6 +25,7 @@ export const Sidebar: React.FC = () => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/endpoints', label: 'Endpoints', icon: Monitor },
     { path: '/deployments', label: 'Deployments', icon: PackageCheck },
+    { path: '/licensing', label: 'KMS Management', icon: KeyRound },
     { path: '/discovery', label: 'Discovery', icon: Compass },
     { path: '/audit', label: 'Audit Logs', icon: FileSpreadsheet },
     ...(isAuthorizedForUsers ? [{ path: '/users', label: 'User Management', icon: Users }] : []),
