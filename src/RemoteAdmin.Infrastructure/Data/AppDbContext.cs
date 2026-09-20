@@ -33,6 +33,11 @@ public class AppDbContext : DbContext
     public DbSet<ActivationWaveItem> ActivationWaveItems => Set<ActivationWaveItem>();
     public DbSet<OfflineTransferPackage> OfflineTransferPackages => Set<OfflineTransferPackage>();
     public DbSet<LicenseComplianceRecord> LicenseComplianceRecords => Set<LicenseComplianceRecord>();
+    public DbSet<PerpetualLicense> PerpetualLicenses => Set<PerpetualLicense>();
+    public DbSet<LicenseEntitlement> LicenseEntitlements => Set<LicenseEntitlement>();
+    public DbSet<LicensingProduct> LicensingProducts => Set<LicensingProduct>();
+    public DbSet<LicenseAssignment> LicenseAssignments => Set<LicenseAssignment>();
+    public DbSet<LicenseComplianceAlert> LicenseComplianceAlerts => Set<LicenseComplianceAlert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -241,6 +246,65 @@ public class AppDbContext : DbContext
             entity.Property(e => e.PackageHash).HasMaxLength(256);
             entity.Property(e => e.SourceEnvironment).HasMaxLength(100);
             entity.Property(e => e.TargetEnvironment).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<PerpetualLicense>(entity =>
+        {
+            entity.HasIndex(e => e.LicenseReference).IsUnique();
+            entity.Property(e => e.LicenseReference).HasMaxLength(100);
+            entity.Property(e => e.ProductName).HasMaxLength(255);
+            entity.Property(e => e.ProductFamily).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.LicenseTerm).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.LicenseChannel).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.ActivationType).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.AgreementReference).HasMaxLength(100);
+            entity.Property(e => e.PurchaseReference).HasMaxLength(100);
+            entity.Property(e => e.MaskedKey).HasMaxLength(100);
+            entity.Property(e => e.Site).HasMaxLength(100);
+            entity.Property(e => e.Department).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<LicenseEntitlement>(entity =>
+        {
+            entity.Property(e => e.ProductId).HasMaxLength(100);
+            entity.Property(e => e.EntitlementType).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(50);
+            entity.HasOne(e => e.License)
+                .WithMany(l => l.Entitlements)
+                .HasForeignKey(e => e.LicenseId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LicensingProduct>(entity =>
+        {
+            entity.HasIndex(e => e.ProductId).IsUnique();
+            entity.Property(e => e.ProductId).HasMaxLength(100);
+            entity.Property(e => e.ProductName).HasMaxLength(255);
+            entity.Property(e => e.ProductFamily).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<LicenseAssignment>(entity =>
+        {
+            entity.HasIndex(e => new { e.LicenseId, e.EndpointId }).IsUnique();
+            entity.Property(e => e.AssignmentStatus).HasConversion<string>().HasMaxLength(50);
+            entity.HasOne(e => e.License)
+                .WithMany(l => l.Assignments)
+                .HasForeignKey(e => e.LicenseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Endpoint)
+                .WithMany()
+                .HasForeignKey(e => e.EndpointId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LicenseComplianceAlert>(entity =>
+        {
+            entity.Property(e => e.ProductName).HasMaxLength(255);
+            entity.Property(e => e.ComplianceStatus).HasConversion<string>().HasMaxLength(50);
+            entity.HasOne(e => e.License)
+                .WithMany()
+                .HasForeignKey(e => e.LicenseId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

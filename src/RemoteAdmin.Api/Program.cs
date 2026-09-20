@@ -144,6 +144,7 @@ builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IWindows
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IOfficeActivationService, RemoteAdmin.Infrastructure.Services.Licensing.OfficeActivationService>();
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IActivationWaveService, RemoteAdmin.Infrastructure.Services.Licensing.ActivationWaveService>();
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IOfflinePackageService, RemoteAdmin.Infrastructure.Services.Licensing.OfflinePackageService>();
+builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.Licensing.IPerpetualLicensingService, RemoteAdmin.Infrastructure.Services.Licensing.PerpetualLicensingService>();
 
 // Windows Management Service
 builder.Services.AddScoped<RemoteAdmin.Application.Interfaces.IWindowsManagementService, RemoteAdmin.Infrastructure.Services.WindowsManagementService>();

@@ -107,6 +107,120 @@ export interface LicensingOverview {
   recentActivationFailures: ActivationRecordItem[];
 }
 
+export interface PerpetualLicenseItem {
+  id: string;
+  licenseReference: string;
+  productFamily: 'Windows' | 'Office' | 'WindowsServer' | 'Other';
+  productName: string;
+  productVersion?: string;
+  edition?: string;
+  licenseTerm: 'Perpetual' | 'Subscription' | 'Unknown';
+  licenseChannel: 'KMS' | 'MAK' | 'ADBA' | 'Retail' | 'OEM' | 'Volume' | 'Unknown';
+  activationType: 'KMS' | 'MAK' | 'ADBA' | 'Retail' | 'OEM' | 'Volume' | 'Unknown';
+  agreementReference?: string;
+  purchaseReference?: string;
+  entitlementQuantity: number;
+  assignedQuantity: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  effectiveDate?: string;
+  purchaseDate?: string;
+  expiryDate?: string;
+  isActive: boolean;
+  notes?: string;
+  site?: string;
+  department?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface LicenseEntitlementItem {
+  id: string;
+  licenseId: string;
+  productId?: string;
+  productName: string;
+  entitlementType: 'Perpetual' | 'Subscription' | 'Evaluation' | 'Trial' | 'Unknown';
+  quantity: number;
+  assignedQuantity: number;
+  availableQuantity: number;
+  reservedQuantity: number;
+  agreementReference?: string;
+  effectiveDate?: string;
+  expirationDate?: string;
+  status: 'Active' | 'Suspended' | 'Expired' | 'Exhausted' | 'Cancelled' | 'Unknown';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LicensingProductItem {
+  id: string;
+  productId: string;
+  productName: string;
+  productFamily: 'Windows' | 'Office' | 'WindowsServer' | 'Other';
+  version?: string;
+  edition?: string;
+  architecture?: string;
+  supportedActivationTypes: string[];
+  supportedLicenseTerms: string[];
+  isVolumeProduct: boolean;
+  isPerpetual: boolean;
+  isActive: boolean;
+}
+
+export interface LicenseAssignmentItem {
+  id: string;
+  licenseId: string;
+  licenseReference?: string;
+  endpointId: string;
+  endpointHostname?: string;
+  endpointIpAddress?: string;
+  productId?: string;
+  productName?: string;
+  assignmentStatus: 'Assigned' | 'Released' | 'Suspended' | 'Replaced';
+  assignedAt: string;
+  assignedBy?: string;
+  releasedAt?: string;
+  releasedBy?: string;
+  notes?: string;
+}
+
+export interface LicenseComplianceAlertItem {
+  id: string;
+  licenseId: string;
+  productName: string;
+  complianceStatus: 'Compliant' | 'UnderAssigned' | 'FullyAssigned' | 'OverAssigned' | 'Unknown';
+  entitlementCount: number;
+  assignedCount: number;
+  detectedCount: number;
+  detectedAt: string;
+  message: string;
+  isResolved: boolean;
+}
+
+export interface PerpetualLicenseComplianceOverviewItem {
+  totalEntitlements: number;
+  assigned: number;
+  available: number;
+  reserved: number;
+  unassigned: number;
+  complianceExceptions: number;
+  licenses: PerpetualLicenseItem[];
+  alerts: LicenseComplianceAlertItem[];
+}
+
+export interface LicenseMatrixRowItem {
+  licenseTerm: string;
+  channel: string;
+  activation: string;
+  managed: string;
+  isKmsSupported: boolean;
+  isMakSupported: boolean;
+  isAdbaSupported: boolean;
+  notes: string;
+}
+
 export const licensingApi = {
   getOverview: async () => {
     const res = await apiClient.get<LicensingOverview>('/api/licensing/overview');
@@ -201,5 +315,99 @@ export const licensingApi = {
   importPackage: async (packageJsonContent: string) => {
     const res = await apiClient.post('/api/licensing/offline/import', { packageJsonContent });
     return res.data;
+  },
+
+  // Perpetual Licensing API
+  getPerpetualLicenses: async (product?: string, channel?: string, search?: string) => {
+    const res = await apiClient.get<PerpetualLicenseItem[]>('/api/licensing/licenses', {
+      params: { product, channel, search },
+    });
+    return res.data;
+  },
+
+  getPerpetualLicenseById: async (id: string) => {
+    const res = await apiClient.get<PerpetualLicenseItem>(`/api/licensing/licenses/${id}`);
+    return res.data;
+  },
+
+  createPerpetualLicense: async (data: Partial<PerpetualLicenseItem>) => {
+    const res = await apiClient.post<PerpetualLicenseItem>('/api/licensing/licenses', data);
+    return res.data;
+  },
+
+  updatePerpetualLicense: async (id: string, data: Partial<PerpetualLicenseItem>) => {
+    const res = await apiClient.put<PerpetualLicenseItem>(`/api/licensing/licenses/${id}`, data);
+    return res.data;
+  },
+
+  deletePerpetualLicense: async (id: string) => {
+    await apiClient.delete(`/api/licensing/licenses/${id}`);
+  },
+
+  getAssignments: async (licenseId?: string) => {
+    const res = await apiClient.get<LicenseAssignmentItem[]>(`/api/licensing/licenses/${licenseId || 'all'}/assignments`);
+    return res.data;
+  },
+
+  assignLicense: async (licenseId: string, endpointId: string, notes?: string) => {
+    const res = await apiClient.post<LicenseAssignmentItem>(`/api/licensing/licenses/${licenseId}/assign`, {
+      licenseId,
+      endpointId,
+      notes,
+    });
+    return res.data;
+  },
+
+  releaseLicense: async (assignmentId: string, notes?: string) => {
+    const res = await apiClient.post(`/api/licensing/licenses/${assignmentId}/release`, {
+      assignmentId,
+      notes,
+    });
+    return res.data;
+  },
+
+  transferLicense: async (assignmentId: string, targetEndpointId: string, notes?: string) => {
+    const res = await apiClient.post<LicenseAssignmentItem>(`/api/licensing/licenses/${assignmentId}/transfer`, {
+      assignmentId,
+      targetEndpointId,
+      notes,
+    });
+    return res.data;
+  },
+
+  getCompliance: async () => {
+    const res = await apiClient.get<PerpetualLicenseComplianceOverviewItem>('/api/licensing/compliance');
+    return res.data;
+  },
+
+  runComplianceCheck: async () => {
+    const res = await apiClient.post('/api/licensing/compliance/run');
+    return res.data;
+  },
+
+  getProducts: async () => {
+    const res = await apiClient.get<LicensingProductItem[]>('/api/licensing/products');
+    return res.data;
+  },
+
+  getEntitlements: async () => {
+    const res = await apiClient.get<LicenseEntitlementItem[]>('/api/licensing/entitlements');
+    return res.data;
+  },
+
+  getMatrix: async () => {
+    const res = await apiClient.get<LicenseMatrixRowItem[]>('/api/licensing/matrix');
+    return res.data;
+  },
+
+  downloadPerpetualReportCsv: async () => {
+    const res = await apiClient.get('/api/licensing/reports/perpetual', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Perpetual_License_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   },
 };

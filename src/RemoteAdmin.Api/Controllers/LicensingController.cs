@@ -16,6 +16,7 @@ public class LicensingController : ControllerBase
     private readonly IOfficeActivationService _officeActivation;
     private readonly IActivationWaveService _waveService;
     private readonly IOfflinePackageService _offlineService;
+    private readonly IPerpetualLicensingService _perpetualService;
     private readonly ILogger<LicensingController> _logger;
 
     public LicensingController(
@@ -25,6 +26,7 @@ public class LicensingController : ControllerBase
         IOfficeActivationService officeActivation,
         IActivationWaveService waveService,
         IOfflinePackageService offlineService,
+        IPerpetualLicensingService perpetualService,
         ILogger<LicensingController> logger)
     {
         _kmsService = kmsService;
@@ -33,6 +35,7 @@ public class LicensingController : ControllerBase
         _officeActivation = officeActivation;
         _waveService = waveService;
         _offlineService = offlineService;
+        _perpetualService = perpetualService;
         _logger = logger;
     }
 
@@ -216,5 +219,156 @@ public class LicensingController : ControllerBase
         var user = User.Identity?.Name ?? "Admin";
         var result = await _offlineService.ImportPackageAsync(dto, user);
         return Ok(result);
+    }
+
+    // ==========================================
+    // PERPETUAL LICENSING ENDPOINTS (Req 39-62)
+    // ==========================================
+
+    [HttpGet("licenses")]
+    public async Task<IActionResult> GetPerpetualLicenses(
+        [FromQuery] string? product,
+        [FromQuery] string? channel,
+        [FromQuery] string? search)
+    {
+        var result = await _perpetualService.GetLicensesAsync(product, channel, search);
+        return Ok(result);
+    }
+
+    [HttpGet("licenses/{id}")]
+    public async Task<IActionResult> GetPerpetualLicenseById(Guid id)
+    {
+        var license = await _perpetualService.GetLicenseByIdAsync(id);
+        if (license == null) return NotFound();
+        return Ok(license);
+    }
+
+    [HttpPost("licenses")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> CreatePerpetualLicense([FromBody] CreatePerpetualLicenseDto dto)
+    {
+        var user = User.Identity?.Name ?? "Admin";
+        var created = await _perpetualService.CreateLicenseAsync(dto, user);
+        return CreatedAtAction(nameof(GetPerpetualLicenseById), new { id = created.Id }, created);
+    }
+
+    [HttpPut("licenses/{id}")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> UpdatePerpetualLicense(Guid id, [FromBody] UpdatePerpetualLicenseDto dto)
+    {
+        var user = User.Identity?.Name ?? "Admin";
+        var updated = await _perpetualService.UpdateLicenseAsync(id, dto, user);
+        if (updated == null) return NotFound();
+        return Ok(updated);
+    }
+
+    [HttpDelete("licenses/{id}")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> DeletePerpetualLicense(Guid id)
+    {
+        var user = User.Identity?.Name ?? "Admin";
+        var success = await _perpetualService.DeleteLicenseAsync(id, user);
+        if (!success) return NotFound();
+        return NoContent();
+    }
+
+    [HttpGet("licenses/{id}/assignments")]
+    public async Task<IActionResult> GetLicenseAssignments(Guid id)
+    {
+        var assignments = await _perpetualService.GetAssignmentsAsync(licenseId: id);
+        return Ok(assignments);
+    }
+
+    [HttpPost("licenses/{id}/assign")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> AssignLicense(Guid id, [FromBody] AssignLicenseRequestDto dto)
+    {
+        dto.LicenseId = id;
+        var user = User.Identity?.Name ?? "Operator";
+        try
+        {
+            var assignment = await _perpetualService.AssignLicenseAsync(dto, user);
+            return Ok(assignment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPost("licenses/{id}/release")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> ReleaseLicense(Guid id, [FromBody] ReleaseLicenseRequestDto dto)
+    {
+        var user = User.Identity?.Name ?? "Operator";
+        try
+        {
+            var success = await _perpetualService.ReleaseLicenseAsync(dto, user);
+            if (!success) return NotFound();
+            return Ok(new { Message = "License released successfully." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpPost("licenses/{id}/transfer")]
+    [Authorize(Policy = "Operator")]
+    public async Task<IActionResult> TransferLicense(Guid id, [FromBody] TransferLicenseRequestDto dto)
+    {
+        var user = User.Identity?.Name ?? "Operator";
+        try
+        {
+            var assignment = await _perpetualService.TransferLicenseAsync(dto, user);
+            return Ok(assignment);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
+
+    [HttpGet("compliance")]
+    public async Task<IActionResult> GetCompliance()
+    {
+        var compliance = await _perpetualService.GetComplianceOverviewAsync();
+        return Ok(compliance);
+    }
+
+    [HttpPost("compliance/run")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> RunComplianceCheck()
+    {
+        await _perpetualService.RunComplianceAuditAsync();
+        return Ok(new { Message = "Compliance audit completed." });
+    }
+
+    [HttpGet("products")]
+    public async Task<IActionResult> GetProducts()
+    {
+        var products = await _perpetualService.GetProductCatalogAsync();
+        return Ok(products);
+    }
+
+    [HttpGet("entitlements")]
+    public async Task<IActionResult> GetEntitlements()
+    {
+        var entitlements = await _perpetualService.GetEntitlementsAsync();
+        return Ok(entitlements);
+    }
+
+    [HttpGet("matrix")]
+    public async Task<IActionResult> GetLicenseMatrix()
+    {
+        var matrix = await _perpetualService.GetLicenseMatrixAsync();
+        return Ok(matrix);
+    }
+
+    [HttpGet("reports/perpetual")]
+    public async Task<IActionResult> ExportPerpetualReport()
+    {
+        var bytes = await _perpetualService.GeneratePerpetualReportCsvAsync();
+        return File(bytes, "text/csv", $"Perpetual_License_Report_{DateTime.UtcNow:yyyyMMdd}.csv");
     }
 }
