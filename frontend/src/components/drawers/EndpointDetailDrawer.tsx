@@ -75,6 +75,14 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
   });
   const [resetPasswordInput, setResetPasswordInput] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+  // Software Install / Uninstall modal state
+  const [isUninstallingSw, setIsUninstallingSw] = useState<string | null>(null);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [installPackageInput, setInstallPackageInput] = useState('');
+  const [installVersionInput, setInstallVersionInput] = useState('');
+  const [isInstallingSw, setIsInstallingSw] = useState(false);
 
   const { data: response, isLoading, isError, refetch } = useEndpointDetail(endpointId || '');
 
@@ -171,8 +179,6 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
     }
   };
 
-  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-
   const handleCheckConnection = async () => {
     if (!endpoint) return;
     setIsCheckingConnection(true);
@@ -248,6 +254,48 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
       toast.error('Reset Failed', err?.response?.data?.message || 'Password reset failed');
     } finally {
       setIsResettingPassword(false);
+    }
+  };
+
+  const handleUninstallSoftware = async (softwareName: string) => {
+    if (!endpoint) return;
+    setIsUninstallingSw(softwareName);
+    try {
+      toast.info('Dispatching Uninstallation...', `Uninstalling '${softwareName}' on ${endpoint.hostname}`);
+      const res = await endpointsApi.uninstallSoftware(endpoint.id, softwareName);
+      if (res.success) {
+        toast.success('Software Uninstalled', res.message || `'${softwareName}' uninstallation command sent to ${endpoint.hostname}.`);
+        refetch();
+      } else {
+        toast.error('Uninstallation Failed', res.message || 'Operation failed.');
+      }
+    } catch (err: any) {
+      toast.error('Uninstall Failed', err?.response?.data?.message || err?.message || 'Failed to uninstall software');
+    } finally {
+      setIsUninstallingSw(null);
+    }
+  };
+
+  const handleInstallSoftwareSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!endpoint || !installPackageInput.trim()) return;
+    setIsInstallingSw(true);
+    try {
+      toast.info('Dispatching Remote Installation...', `Installing '${installPackageInput.trim()}' on ${endpoint.hostname}`);
+      const res = await endpointsApi.installSoftware(endpoint.id, installPackageInput.trim(), installVersionInput.trim() || undefined);
+      if (res.success) {
+        toast.success('Software Installation Dispatched', res.message || `Installation of '${installPackageInput}' started on ${endpoint.hostname}.`);
+        setInstallModalOpen(false);
+        setInstallPackageInput('');
+        setInstallVersionInput('');
+        refetch();
+      } else {
+        toast.error('Installation Failed', res.message || 'Operation failed.');
+      }
+    } catch (err: any) {
+      toast.error('Install Failed', err?.response?.data?.message || err?.message || 'Failed to install software package');
+    } finally {
+      setIsInstallingSw(false);
     }
   };
 
@@ -668,22 +716,58 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
             )}
 
             {activeTab === 'software' && (
-              <table className="w-full text-left text-xs border max-h-64 overflow-y-auto">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="p-2">Software Name</th>
-                    <th className="p-2">Version</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {softwareList.map((sw: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="p-2 font-medium">{sw.softwareName}</td>
-                      <td className="p-2 font-mono">{sw.version || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 border rounded">
+                  <div>
+                    <span className="font-bold text-slate-900 block">Installed Software Applications</span>
+                    <span className="text-[11px] text-slate-500">Query and manage software packages (.msi & .exe) on {endpoint.hostname}</span>
+                  </div>
+                  <button
+                    onClick={() => setInstallModalOpen(true)}
+                    className="px-3 py-1.5 bg-[#2F3EA0] text-white rounded text-xs font-semibold flex items-center gap-1 cursor-pointer hover:bg-[#233080]"
+                  >
+                    <Package className="h-3.5 w-3.5" /> Install Package (.msi / .exe)
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-200 rounded bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700">
+                      <tr>
+                        <th className="p-2.5">Software Name</th>
+                        <th className="p-2.5">Publisher / Vendor</th>
+                        <th className="p-2.5">Version</th>
+                        <th className="p-2.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-sans">
+                      {softwareList.map((sw: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2.5 font-bold text-slate-900">{sw.softwareName}</td>
+                          <td className="p-2.5 text-slate-600">{sw.publisher || sw.vendor || 'Microsoft / Enterprise'}</td>
+                          <td className="p-2.5 font-mono text-slate-800">{sw.version || '—'}</td>
+                          <td className="p-2.5 text-right">
+                            <button
+                              onClick={() => handleUninstallSoftware(sw.softwareName)}
+                              disabled={isUninstallingSw === sw.softwareName}
+                              className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                            >
+                              {isUninstallingSw === sw.softwareName ? 'Uninstalling...' : 'Uninstall'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {softwareList.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-6 text-center text-slate-500">
+                            No software applications retrieved yet. Click "Check Connection & Authenticate" above to query remote target software.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             )}
 
             {activeTab === 'drives' && (
@@ -848,6 +932,55 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
                 className="px-3 py-1.5 bg-[#2F3EA0] text-white rounded font-semibold cursor-pointer"
               >
                 Save KMS Host
+              </button>
+            </div>
+          </form>
+        </Modal>
+        {/* Modal: Install Software Package (.msi / .exe) */}
+        <Modal
+          isOpen={installModalOpen}
+          onClose={() => setInstallModalOpen(false)}
+          title={`Install Package (.msi / .exe) on ${endpoint?.hostname}`}
+        >
+          <form onSubmit={handleInstallSoftwareSubmit} className="space-y-3 font-sans text-xs">
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Package / File Name (.msi or .exe) *</label>
+              <input
+                type="text"
+                required
+                value={installPackageInput}
+                onChange={(e) => setInstallPackageInput(e.target.value)}
+                placeholder="e.g. 7zip-x64.msi or ChromeEnterprise.exe"
+                className="w-full p-2 border rounded font-mono text-xs"
+              />
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Automatic silent flags will be appended (<code className="font-mono text-indigo-700">/qn /norestart</code> for .msi, <code className="font-mono text-indigo-700">/quiet /norestart</code> for .exe).
+              </span>
+            </div>
+            <div>
+              <label className="block text-slate-700 font-semibold mb-1">Package Version (Optional)</label>
+              <input
+                type="text"
+                value={installVersionInput}
+                onChange={(e) => setInstallVersionInput(e.target.value)}
+                placeholder="e.g. 23.01"
+                className="w-full p-2 border rounded font-mono text-xs"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setInstallModalOpen(false)}
+                className="px-3 py-1.5 bg-slate-100 border rounded font-semibold text-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isInstallingSw}
+                className="px-3.5 py-1.5 bg-[#2F3EA0] text-white rounded font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {isInstallingSw ? 'Initiating Remote Install...' : 'Install Package'}
               </button>
             </div>
           </form>

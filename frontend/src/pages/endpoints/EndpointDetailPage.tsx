@@ -82,6 +82,14 @@ export const EndpointDetailPage: React.FC = () => {
   });
   const [resetPasswordInput, setResetPasswordInput] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+  // Software Install / Uninstall modal state
+  const [isUninstallingSw, setIsUninstallingSw] = useState<string | null>(null);
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [installPackageInput, setInstallPackageInput] = useState('');
+  const [installVersionInput, setInstallVersionInput] = useState('');
+  const [isInstallingSw, setIsInstallingSw] = useState(false);
 
   const { data: response, isLoading, isError, refetch } = useEndpointDetail(id || '');
 
@@ -165,8 +173,6 @@ export const EndpointDetailPage: React.FC = () => {
     }
   };
 
-  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-
   const handleCheckConnection = async () => {
     setIsCheckingConnection(true);
     try {
@@ -244,6 +250,47 @@ export const EndpointDetailPage: React.FC = () => {
       toast.error('Reset Failed', err?.response?.data?.message || 'Password reset failed');
     } finally {
       setIsResettingPassword(false);
+    }
+  };
+
+  const handleUninstallSoftware = async (softwareName: string) => {
+    setIsUninstallingSw(softwareName);
+    try {
+      toast.info('Dispatching Uninstallation...', `Uninstalling '${softwareName}' on ${endpoint.hostname}`);
+      const res = await endpointsApi.uninstallSoftware(endpoint.id, softwareName);
+      if (res.success) {
+        toast.success('Software Uninstalled', res.message || `'${softwareName}' uninstallation command sent to ${endpoint.hostname}.`);
+        refetch();
+      } else {
+        toast.error('Uninstallation Failed', res.message || 'Operation failed.');
+      }
+    } catch (err: any) {
+      toast.error('Uninstall Failed', err?.response?.data?.message || err?.message || 'Failed to uninstall software');
+    } finally {
+      setIsUninstallingSw(null);
+    }
+  };
+
+  const handleInstallSoftwareSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!installPackageInput.trim()) return;
+    setIsInstallingSw(true);
+    try {
+      toast.info('Dispatching Remote Installation...', `Installing '${installPackageInput.trim()}' on ${endpoint.hostname}`);
+      const res = await endpointsApi.installSoftware(endpoint.id, installPackageInput.trim(), installVersionInput.trim() || undefined);
+      if (res.success) {
+        toast.success('Software Installation Dispatched', res.message || `Installation of '${installPackageInput}' started on ${endpoint.hostname}.`);
+        setInstallModalOpen(false);
+        setInstallPackageInput('');
+        setInstallVersionInput('');
+        refetch();
+      } else {
+        toast.error('Installation Failed', res.message || 'Operation failed.');
+      }
+    } catch (err: any) {
+      toast.error('Install Failed', err?.response?.data?.message || err?.message || 'Failed to install software package');
+    } finally {
+      setIsInstallingSw(false);
     }
   };
 
@@ -863,15 +910,23 @@ export const EndpointDetailPage: React.FC = () => {
           {/* Software Tab */}
           {activeTab === 'software' && (
             <div className="space-y-3">
-              <div className="relative w-64">
-                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={softwareSearch}
-                  onChange={(e) => setSoftwareSearch(e.target.value)}
-                  placeholder="Filter installed software..."
-                  className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0]"
-                />
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 border border-slate-200 rounded">
+                <div className="relative w-64">
+                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={softwareSearch}
+                    onChange={(e) => setSoftwareSearch(e.target.value)}
+                    placeholder="Filter installed software..."
+                    className="w-full pl-8 pr-3 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#2F3EA0] bg-white"
+                  />
+                </div>
+                <button
+                  onClick={() => setInstallModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded shadow-xs cursor-pointer"
+                >
+                  <Package className="h-4 w-4" /> Install Package (.msi / .exe)
+                </button>
               </div>
 
               {sectionStatuses['InstalledSoftware']?.isAvailable === false && (
@@ -881,29 +936,39 @@ export const EndpointDetailPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="overflow-x-auto border border-slate-200 rounded max-h-72">
+              <div className="overflow-x-auto border border-slate-200 rounded max-h-72 bg-white">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-700 sticky top-0">
                     <tr>
-                      <th className="p-2">Application Name</th>
-                      <th className="p-2">Version</th>
-                      <th className="p-2">Publisher</th>
-                      <th className="p-2">Arch</th>
+                      <th className="p-2.5">Application Name</th>
+                      <th className="p-2.5">Publisher / Vendor</th>
+                      <th className="p-2.5">Version</th>
+                      <th className="p-2.5">Arch</th>
+                      <th className="p-2.5 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 font-sans">
                     {softwareList.length > 0 ? (
                       softwareList.map((sw) => (
                         <tr key={sw.id} className="hover:bg-slate-50">
-                          <td className="p-2 font-medium text-slate-900">{sw.softwareName}</td>
-                          <td className="p-2 font-mono text-slate-700">{sw.version || '—'}</td>
-                          <td className="p-2 text-slate-600">{sw.publisher || '—'}</td>
-                          <td className="p-2 font-mono text-slate-500">{sw.architecture || 'x64'}</td>
+                          <td className="p-2.5 font-bold text-slate-900">{sw.softwareName}</td>
+                          <td className="p-2.5 text-slate-600">{sw.publisher || 'Microsoft / Enterprise'}</td>
+                          <td className="p-2.5 font-mono text-slate-700">{sw.version || '—'}</td>
+                          <td className="p-2.5 font-mono text-slate-500">{sw.architecture || 'x64'}</td>
+                          <td className="p-2.5 text-right">
+                            <button
+                              onClick={() => handleUninstallSoftware(sw.softwareName)}
+                              disabled={isUninstallingSw === sw.softwareName}
+                              className="px-2.5 py-1 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                            >
+                              {isUninstallingSw === sw.softwareName ? 'Uninstalling...' : 'Uninstall'}
+                            </button>
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-6 text-center text-slate-500">No software items match query or recorded yet.</td>
+                        <td colSpan={5} className="p-6 text-center text-slate-500">No software items match query or recorded yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -1115,6 +1180,56 @@ export const EndpointDetailPage: React.FC = () => {
               className="px-3 py-1.5 text-xs bg-[#2F3EA0] hover:bg-[#233080] text-white font-semibold rounded disabled:opacity-50"
             >
               {isResettingPassword ? 'Resetting...' : 'Confirm Reset Password'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Install Software Package (.msi / .exe) */}
+      <Modal
+        isOpen={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+        title={`Install Package (.msi / .exe) on ${endpoint.hostname}`}
+      >
+        <form onSubmit={handleInstallSoftwareSubmit} className="space-y-3 font-sans text-xs">
+          <div>
+            <label className="block text-slate-700 font-semibold mb-1">Package / File Name (.msi or .exe) *</label>
+            <input
+              type="text"
+              required
+              value={installPackageInput}
+              onChange={(e) => setInstallPackageInput(e.target.value)}
+              placeholder="e.g. 7zip-x64.msi or ChromeEnterprise.exe"
+              className="w-full p-2 border rounded font-mono text-xs"
+            />
+            <span className="text-[10px] text-slate-500 mt-1 block">
+              Automatic silent flags will be appended (<code className="font-mono text-indigo-700">/qn /norestart</code> for .msi, <code className="font-mono text-indigo-700">/quiet /norestart</code> for .exe).
+            </span>
+          </div>
+          <div>
+            <label className="block text-slate-700 font-semibold mb-1">Package Version (Optional)</label>
+            <input
+              type="text"
+              value={installVersionInput}
+              onChange={(e) => setInstallVersionInput(e.target.value)}
+              placeholder="e.g. 23.01"
+              className="w-full p-2 border rounded font-mono text-xs"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              onClick={() => setInstallModalOpen(false)}
+              className="px-3 py-1.5 bg-slate-100 border rounded font-semibold text-slate-700 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isInstallingSw}
+              className="px-3.5 py-1.5 bg-[#2F3EA0] text-white rounded font-semibold cursor-pointer disabled:opacity-50"
+            >
+              {isInstallingSw ? 'Initiating Remote Install...' : 'Install Package'}
             </button>
           </div>
         </form>

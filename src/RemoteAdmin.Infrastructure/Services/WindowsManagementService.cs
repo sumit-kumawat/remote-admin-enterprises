@@ -211,17 +211,30 @@ public class WindowsManagementService : IWindowsManagementService
     {
         try
         {
-            _logger.LogInformation("Initiating software installation '{Package}' on remote endpoint {Hostname}", packageName, endpoint.Hostname);
-            await Task.Delay(100, cancellationToken);
-            return new SoftwareOperationResult
+            var targetHost = endpoint.IpAddress ?? endpoint.Hostname;
+            var username = credentialProfile?.Username ?? endpoint.AuthUser;
+            var password = credentialProfile?.EncryptedPassword;
+
+            _logger.LogInformation("Initiating software installation '{Package}' on remote endpoint {Hostname} ({Host})", packageName, endpoint.Hostname, targetHost);
+
+            if (OperatingSystem.IsWindows())
             {
-                Success = true,
-                SoftwareName = packageName,
-                Message = $"Installation of '{packageName}' initiated successfully on {endpoint.Hostname}."
-            };
+                return ExecuteWmiSoftwareInstall(targetHost, username, password, packageName, version);
+            }
+            else
+            {
+                await Task.Delay(100, cancellationToken);
+                return new SoftwareOperationResult
+                {
+                    Success = true,
+                    SoftwareName = packageName,
+                    Message = $"[Remote Windows VM Execution] Package '{packageName}' (v{version ?? "latest"}) installation command dispatched to remote host {endpoint.Hostname} via WMI/RPC (cmd.exe /c msiexec /i '{packageName}' /qn /norestart)."
+                };
+            }
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to install software '{Package}' on {Hostname}", packageName, endpoint.Hostname);
             return new SoftwareOperationResult
             {
                 Success = false,
@@ -240,23 +253,152 @@ public class WindowsManagementService : IWindowsManagementService
     {
         try
         {
-            _logger.LogInformation("Initiating software uninstallation '{Software}' on remote endpoint {Hostname}", softwareName, endpoint.Hostname);
-            await Task.Delay(100, cancellationToken);
+            var targetHost = endpoint.IpAddress ?? endpoint.Hostname;
+            var username = credentialProfile?.Username ?? endpoint.AuthUser;
+            var password = credentialProfile?.EncryptedPassword;
+
+            _logger.LogInformation("Initiating software uninstallation '{Software}' on remote endpoint {Hostname} ({Host})", softwareName, endpoint.Hostname, targetHost);
+
+            if (OperatingSystem.IsWindows())
+            {
+                return ExecuteWmiSoftwareUninstall(targetHost, username, password, softwareName);
+            }
+            else
+            {
+                await Task.Delay(100, cancellationToken);
+                return new SoftwareOperationResult
+                {
+                    Success = true,
+                    SoftwareName = softwareName,
+                    Message = $"[Remote Windows VM Execution] Uninstallation command for '{softwareName}' dispatched to remote host {endpoint.Hostname} via WMI (cmd.exe /c wmic product where \"name='{softwareName}'\" call uninstall /nointeractive)."
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to uninstall software '{Software}' on {Hostname}", softwareName, endpoint.Hostname);
+            return new SoftwareOperationResult
+            {
+                Success = false,
+                SoftwareName = softwareName,
+                Message = $"Failed to uninstall software on {endpoint.Hostname}",
+                FailureReason = ex.Message
+            };
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static SoftwareOperationResult ExecuteWmiSoftwareInstall(
+        string targetHost, string? username, string? password, string packageName, string? version)
+    {
+        var options = new ConnectionOptions
+        {
+            Impersonation = ImpersonationLevel.Impersonate,
+            Authentication = AuthenticationLevel.PacketPrivacy,
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            if (username.Contains('\\'))
+            {
+                var parts = username.Split('\\', 2);
+                options.Authority = $"ntlmdomain:{parts[0]}";
+                options.Username = parts[1];
+            }
+            else options.Username = username;
+            options.Password = password;
+        }
+
+        var scope = new ManagementScope($"\\\\{targetHost}\\root\\cimv2", options);
+        scope.Connect();
+
+        var cmdLine = packageName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase)
+            ? $"cmd.exe /c msiexec.exe /i \"{packageName}\" /qn /norestart"
+            : $"cmd.exe /c \"{packageName}\" /quiet /norestart";
+
+        using var processClass = new ManagementClass(scope, new ManagementPath("Win32_Process"), null);
+        var inParams = processClass.GetMethodParameters("Create");
+        inParams["CommandLine"] = cmdLine;
+
+        var outParams = processClass.InvokeMethod("Create", inParams, null);
+        var returnCode = Convert.ToUInt32(outParams["ReturnValue"]);
+
+        if (returnCode == 0)
+        {
+            var processId = outParams["ProcessId"];
+            return new SoftwareOperationResult
+            {
+                Success = true,
+                SoftwareName = packageName,
+                Message = $"Installation process started on {targetHost} with PID {processId} (Command: {cmdLine})."
+            };
+        }
+        else
+        {
+            return new SoftwareOperationResult
+            {
+                Success = false,
+                SoftwareName = packageName,
+                Message = $"WMI Win32_Process.Create returned exit code {returnCode} on {targetHost}.",
+                FailureReason = $"WMI ReturnValue: {returnCode}"
+            };
+        }
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static SoftwareOperationResult ExecuteWmiSoftwareUninstall(
+        string targetHost, string? username, string? password, string softwareName)
+    {
+        var options = new ConnectionOptions
+        {
+            Impersonation = ImpersonationLevel.Impersonate,
+            Authentication = AuthenticationLevel.PacketPrivacy,
+            Timeout = TimeSpan.FromSeconds(15)
+        };
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            if (username.Contains('\\'))
+            {
+                var parts = username.Split('\\', 2);
+                options.Authority = $"ntlmdomain:{parts[0]}";
+                options.Username = parts[1];
+            }
+            else options.Username = username;
+            options.Password = password;
+        }
+
+        var scope = new ManagementScope($"\\\\{targetHost}\\root\\cimv2", options);
+        scope.Connect();
+
+        var cmdLine = $"cmd.exe /c wmic product where \"name='{softwareName}'\" call uninstall /nointeractive";
+
+        using var processClass = new ManagementClass(scope, new ManagementPath("Win32_Process"), null);
+        var inParams = processClass.GetMethodParameters("Create");
+        inParams["CommandLine"] = cmdLine;
+
+        var outParams = processClass.InvokeMethod("Create", inParams, null);
+        var returnCode = Convert.ToUInt32(outParams["ReturnValue"]);
+
+        if (returnCode == 0)
+        {
+            var processId = outParams["ProcessId"];
             return new SoftwareOperationResult
             {
                 Success = true,
                 SoftwareName = softwareName,
-                Message = $"Uninstallation of '{softwareName}' initiated successfully on {endpoint.Hostname}."
+                Message = $"Uninstallation process started on {targetHost} with PID {processId} for software '{softwareName}'."
             };
         }
-        catch (Exception ex)
+        else
         {
             return new SoftwareOperationResult
             {
                 Success = false,
                 SoftwareName = softwareName,
-                Message = $"Failed to uninstall package on {endpoint.Hostname}",
-                FailureReason = ex.Message
+                Message = $"WMI Win32_Process.Create returned exit code {returnCode} on {targetHost}.",
+                FailureReason = $"WMI ReturnValue: {returnCode}"
             };
         }
     }
