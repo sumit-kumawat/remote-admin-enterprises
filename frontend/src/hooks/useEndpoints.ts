@@ -85,3 +85,35 @@ export function useCreateLocalAdmin() {
     },
   });
 }
+
+export function useDeleteEndpoint() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => endpointsApi.deleteEndpoint(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['endpoints'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      toast.success('Endpoint Removed', `Endpoint ${id} removed successfully.`);
+    },
+    onError: (err: any) => {
+      toast.error('Delete Failed', err?.response?.data?.message || 'Failed to delete endpoint');
+    },
+  });
+}
+
+export function useBulkDeleteEndpoints() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (endpointIds: string[]) => endpointsApi.bulkDelete(endpointIds),
+    onSuccess: (_, endpointIds) => {
+      queryClient.invalidateQueries({ queryKey: ['endpoints'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      toast.success('Bulk Delete Complete', `Successfully removed ${endpointIds.length} selected endpoint(s).`);
+    },
+    onError: (err: any) => {
+      toast.error('Bulk Delete Failed', err?.response?.data?.message || 'Failed to delete selected endpoints');
+    },
+  });
+}

@@ -58,15 +58,15 @@ export const DashboardPage: React.FC = () => {
           <p className="text-xs text-slate-500 mt-0.5">Real-time infrastructure health, status distribution, and active job metrics</p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Auto Refresh Select Dropdown */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1">
-            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
-            <span className="text-[11px] text-slate-600 font-medium">Auto-Refresh:</span>
+          <div className="inline-flex items-center gap-1.5 h-9 bg-slate-50 border border-slate-300 rounded px-3 text-xs text-slate-700">
+            <SlidersHorizontal className="h-4 w-4 text-slate-500 shrink-0" />
+            <span className="font-semibold text-slate-600">Auto-Refresh:</span>
             <select
               value={refreshIntervalMs}
               onChange={(e) => setRefreshIntervalMs(Number(e.target.value))}
-              className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer h-full border-none pr-1"
             >
               <option value={5000}>5 seconds</option>
               <option value={15000}>15 seconds (Default)</option>
@@ -78,9 +78,9 @@ export const DashboardPage: React.FC = () => {
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] rounded transition-colors disabled:opacity-50 shadow-xs"
+            className="inline-flex items-center gap-1.5 h-9 px-3 text-xs font-semibold text-white bg-[#2F3EA0] hover:bg-[#263385] border border-[#2F3EA0] rounded transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
             <span>{isRefetching ? 'Refetching...' : 'Refresh Metrics'}</span>
           </button>
         </div>

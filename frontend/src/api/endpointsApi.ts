@@ -35,6 +35,16 @@ export const endpointsApi = {
     return response.data;
   },
 
+  deleteEndpoint: async (id: string): Promise<ApiResponse> => {
+    const response = await apiClient.delete<ApiResponse>(`/api/Endpoints/${id}`);
+    return response.data;
+  },
+
+  bulkDelete: async (endpointIds: string[]): Promise<ApiResponse> => {
+    const response = await apiClient.post<ApiResponse>('/api/Endpoints/bulk-delete', { action: 'Delete', endpointIds });
+    return response.data;
+  },
+
   createLocalAdmin: async (endpointIds: string[]): Promise<ApiResponse> => {
     const response = await apiClient.post<ApiResponse>('/api/Endpoints/create-local-admin', { endpointIds });
     return response.data;

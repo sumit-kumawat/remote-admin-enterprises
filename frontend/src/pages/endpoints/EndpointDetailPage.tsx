@@ -3,7 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEndpointDetail } from '../../hooks/useEndpoints';
 import { endpointsApi } from '../../api/endpointsApi';
 import { fetchCredentials, type CredentialProfileItem } from '../../api/credentialsApi';
-import type { LocalAccountDto, SecuritySoftwareDto } from '../../types/api';
+import type {
+  EndpointDetailDto,
+  LocalAccountDto,
+  SecuritySoftwareDto,
+  SoftwareInventoryItemDto,
+  NetworkInterfaceDto,
+  PhysicalDiskDto,
+  StorageDriveDto,
+} from '../../types/api';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
@@ -83,15 +91,18 @@ export const EndpointDetailPage: React.FC = () => {
       .catch(() => setCredentialProfiles([]));
   }, []);
 
+  const rawData: any = response;
+  const endpoint: EndpointDetailDto | undefined = rawData?.data ?? (rawData?.id ? rawData : undefined);
+
   useEffect(() => {
-    if (response?.data) {
-      setSelectedAuthMode(response.data.authMode || 'Inherit');
-      setSelectedProfileId(response.data.credentialProfileId || '');
+    if (endpoint) {
+      setSelectedAuthMode(endpoint.authMode || 'Inherit');
+      setSelectedProfileId(endpoint.credentialProfileId || '');
     }
-  }, [response]);
+  }, [endpoint]);
 
   if (isLoading) return <LoadingSkeleton rows={8} />;
-  if (isError || !response?.data) {
+  if (isError || !endpoint) {
     return (
       <div className="bg-white p-6 border border-slate-200 rounded-md shadow-xs space-y-4 max-w-xl mx-auto my-8 text-center font-sans">
         <div className="inline-flex p-3 bg-amber-100 text-amber-700 rounded-full">
@@ -119,17 +130,15 @@ export const EndpointDetailPage: React.FC = () => {
     );
   }
 
-  const endpoint = response.data;
-
   const hw = endpoint.hardware;
-  const nics = endpoint.networkInterfaces || [];
-  const drives = endpoint.drives || [];
-  const physicalDisks = endpoint.physicalDisks || [];
-  const softwareList = (endpoint.software || []).filter((s) =>
+  const nics: NetworkInterfaceDto[] = endpoint.networkInterfaces || [];
+  const drives: StorageDriveDto[] = endpoint.drives || [];
+  const physicalDisks: PhysicalDiskDto[] = endpoint.physicalDisks || [];
+  const softwareList: SoftwareInventoryItemDto[] = (endpoint.software || []).filter((s: SoftwareInventoryItemDto) =>
     (s?.softwareName || '').toLowerCase().includes((softwareSearch || '').toLowerCase())
   );
-  const localAccounts = endpoint.localAccounts || [];
-  const securitySoftware = endpoint.securitySoftware || [];
+  const localAccounts: LocalAccountDto[] = endpoint.localAccounts || [];
+  const securitySoftware: SecuritySoftwareDto[] = endpoint.securitySoftware || [];
   const sectionStatuses = endpoint.sectionStatuses || {};
 
   const isOnline = (endpoint.status || '').toLowerCase() === 'online';

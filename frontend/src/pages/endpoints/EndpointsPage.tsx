@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useEndpointsList, useBulkAction, useCreateLocalAdmin } from '../../hooks/useEndpoints';
+import { useEndpointsList, useBulkAction, useCreateLocalAdmin, useBulkDeleteEndpoints } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -8,6 +8,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { AddEndpointModal } from '../../components/modals/AddEndpointModal';
 import { ImportEndpointsModal } from '../../components/modals/ImportEndpointsModal';
 import { EndpointDetailDrawer } from '../../components/drawers/EndpointDetailDrawer';
+import { Modal } from '../../components/common/Modal';
 import { DeviceIcon } from '../../components/common/DeviceIcon';
 import { toast } from '../../store/useToastStore';
 import {
@@ -24,6 +25,8 @@ import {
   ShieldAlert,
   Clock,
   ExternalLink,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const EndpointsPage: React.FC = () => {
@@ -36,6 +39,7 @@ export const EndpointsPage: React.FC = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedDrawerEndpointId, setSelectedDrawerEndpointId] = useState<string | null>(null);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<string[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -43,6 +47,7 @@ export const EndpointsPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useEndpointsList({ search, page: 1, pageSize: 100 });
   const bulkActionMutation = useBulkAction();
   const createLocalAdminMutation = useCreateLocalAdmin();
+  const bulkDeleteMutation = useBulkDeleteEndpoints();
 
   const rawItems = data?.items || [];
 
@@ -71,7 +76,9 @@ export const EndpointsPage: React.FC = () => {
 
   const handleBulkAction = (action: string) => {
     if (selectedEndpointIds.length === 0) return;
-    if (action === 'CreateLocalAdmin') {
+    if (action === 'Delete') {
+      setIsDeleteModalOpen(true);
+    } else if (action === 'CreateLocalAdmin') {
       createLocalAdminMutation.mutate(selectedEndpointIds, {
         onSuccess: () => setSelectedEndpointIds([]),
       });
@@ -81,6 +88,16 @@ export const EndpointsPage: React.FC = () => {
         { onSuccess: () => setSelectedEndpointIds([]) }
       );
     }
+  };
+
+  const confirmBulkDelete = () => {
+    if (selectedEndpointIds.length === 0) return;
+    bulkDeleteMutation.mutate(selectedEndpointIds, {
+      onSuccess: () => {
+        setSelectedEndpointIds([]);
+        setIsDeleteModalOpen(false);
+      },
+    });
   };
 
   const handleCopyToClipboard = (text: string, label: string, e: React.MouseEvent) => {
@@ -160,7 +177,15 @@ export const EndpointsPage: React.FC = () => {
               <option value="CheckConnection">Check Connection & Auth</option>
               <option value="CreateLocalAdmin">Provision Managed Local User ("ra")</option>
               <option value="RestartAgent">Restart Worker Agent</option>
+              <option value="Delete">Delete Selected ({selectedEndpointIds.length})</option>
             </select>
+            <button
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded transition-colors cursor-pointer shadow-xs"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete ({selectedEndpointIds.length})
+            </button>
           </div>
         )}
 
@@ -382,6 +407,46 @@ export const EndpointsPage: React.FC = () => {
         isOpen={Boolean(selectedDrawerEndpointId)}
         onClose={() => setSelectedDrawerEndpointId(null)}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirm Endpoint Deletion"
+        subtitle={`Permanently remove ${selectedEndpointIds.length} endpoint(s) from inventory`}
+        maxWidth="md"
+      >
+        <div className="space-y-4 font-sans">
+          <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-200 rounded text-rose-900">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-xs">Warning: Unrecoverable Inventory Removal</p>
+              <p className="text-xs text-rose-800">
+                Are you sure you want to delete <span className="font-bold">{selectedEndpointIds.length}</span> selected endpoint(s)? This will remove all associated hardware inventory details, credential mappings, and audit history references.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-3 py-1.5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={confirmBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {bulkDeleteMutation.isPending ? 'Deleting...' : `Confirm Delete (${selectedEndpointIds.length})`}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

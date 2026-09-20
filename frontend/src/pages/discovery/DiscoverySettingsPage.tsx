@@ -1,14 +1,11 @@
 import React from 'react';
 import { DiscoverySubnav } from './DiscoverySubnav';
-import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { SlidersHorizontal, ShieldAlert, Cpu, Database } from 'lucide-react';
 
 export const DiscoverySettingsPage: React.FC = () => {
-  const { connectionStatus } = useDiscoveryHub();
-
   return (
     <div className="space-y-4 text-xs font-sans">
-      <DiscoverySubnav connectionStatus={connectionStatus} />
+      <DiscoverySubnav />
 
       {/* Header */}
       <div className="bg-white p-4 border border-slate-200 rounded-md shadow-xs">

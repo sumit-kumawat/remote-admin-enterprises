@@ -524,6 +524,20 @@ public class EndpointsController : ControllerBase
                     });
                 }
             }
+            else if (request.Action == "Delete")
+            {
+                _db.Endpoints.Remove(ep);
+                successCount++;
+
+                bulkOp.Items.Add(new BulkOperationItem
+                {
+                    EndpointId = ep.Id,
+                    EndpointHostname = ep.Hostname,
+                    Status = "Success",
+                    ResultMessage = $"Endpoint '{ep.Hostname}' deleted.",
+                    CompletedAt = DateTime.UtcNow,
+                });
+            }
             else
             {
                 if (request.Action == "Approve") ep.ApprovalStatus = EndpointApprovalStatus.Approved;
@@ -550,6 +564,54 @@ public class EndpointsController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var endpoint = await FindEndpointByIdOrNameAsync(id);
+        if (endpoint == null)
+            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found." });
+
+        _db.Endpoints.Remove(endpoint);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "DeleteEndpoint",
+            Target = endpoint.Hostname,
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = JsonSerializer.Serialize(new { endpointId = endpoint.Id, hostname = endpoint.Hostname }),
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Endpoint '{endpoint.Hostname}' deleted successfully." });
+    }
+
+    [HttpPost("bulk-delete")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> BulkDelete([FromBody] BulkActionRequest request)
+    {
+        if (request.EndpointIds == null || request.EndpointIds.Count == 0)
+            return BadRequest(new ApiResponse { Success = false, Message = "Select at least one endpoint to delete" });
+
+        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
+        int count = endpoints.Count;
+
+        _db.Endpoints.RemoveRange(endpoints);
+        _db.AuditEvents.Add(new AuditEvent
+        {
+            Actor = User.Identity?.Name ?? "Admin",
+            Action = "BulkDeleteEndpoints",
+            Target = $"{count} Endpoints",
+            Result = "Success",
+            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+            DetailsJson = JsonSerializer.Serialize(new { deletedCount = count, endpointIds = request.EndpointIds }),
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok(new ApiResponse { Success = true, Message = $"Successfully deleted {count} endpoint(s)." });
     }
 
     [HttpPost("{id}/check-connection")]

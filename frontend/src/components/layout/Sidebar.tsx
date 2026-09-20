@@ -14,6 +14,9 @@ import {
   ShieldAlert,
   KeyRound,
 } from 'lucide-react';
+import appVersionRaw from '../../../../version.txt?raw';
+
+const APP_VERSION = (appVersionRaw || 'v1.0.0').trim();
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
@@ -110,7 +113,7 @@ export const Sidebar: React.FC = () => {
             <ShieldAlert className="h-3.5 w-3.5 text-emerald-600" />
             <span>Air-Gapped Console</span>
           </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">v1.0.0 — Enterprise</div>
+          <div className="text-[10px] text-slate-500 mt-0.5">{APP_VERSION} — Enterprise</div>
         </div>
       )}
     </aside>

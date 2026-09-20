@@ -13,7 +13,7 @@ public class DiscoveryEngineTests
     [InlineData("172.16.0.0/23", 510)]
     public void ParseSingleSubnetCidr_ValidCidr_ReturnsCorrectHostList(string cidr, int expectedCount)
     {
-        var scanEngine = new DiscoveryScanEngine(null!, null!, _ouiService, null!);
+        var scanEngine = new DiscoveryScanEngine(null!, _ouiService, null!);
         var hosts = scanEngine.ParseSingleSubnetCidr(cidr);
         Assert.Equal(expectedCount, hosts.Count);
     }
@@ -25,7 +25,7 @@ public class DiscoveryEngineTests
     [InlineData("invalid-cidr")]
     public void ParseSingleSubnetCidr_InvalidOrMultiSubnet_ThrowsArgumentException(string cidr)
     {
-        var scanEngine = new DiscoveryScanEngine(null!, null!, _ouiService, null!);
+        var scanEngine = new DiscoveryScanEngine(null!, _ouiService, null!);
         Assert.Throws<ArgumentException>(() => scanEngine.ParseSingleSubnetCidr(cidr));
     }
 

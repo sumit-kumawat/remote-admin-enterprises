@@ -18,7 +18,6 @@ namespace RemoteAdmin.Infrastructure.Services;
 public class DiscoveryScanEngine : IDiscoveryScanEngine
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IDiscoveryHubNotifier _notifier;
     private readonly IOuiVendorLookupService _ouiService;
     private readonly ILogger<DiscoveryScanEngine> _logger;
 
@@ -27,12 +26,10 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
 
     public DiscoveryScanEngine(
         IServiceScopeFactory scopeFactory,
-        IDiscoveryHubNotifier notifier,
         IOuiVendorLookupService ouiService,
         ILogger<DiscoveryScanEngine> logger)
     {
         _scopeFactory = scopeFactory;
-        _notifier = notifier;
         _ouiService = ouiService;
         _logger = logger;
     }
@@ -330,14 +327,6 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
             });
 
             await db.SaveChangesAsync();
-
-            await _notifier.NotifyScanCompletedAsync(scanId, new
-            {
-                scanId = scanId.ToString(),
-                status = dbScan.Status,
-                hostsFound = hostsFoundCount,
-                completedAt = dbScan.CompletedAt
-            });
         }
     }
 
@@ -554,16 +543,6 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
         }
 
         await db.SaveChangesAsync(ct);
-
-        var dto = MapHostToDto(hostEntity);
-        if (isNew)
-        {
-            await _notifier.NotifyHostDiscoveredAsync(scanId, dto);
-        }
-        else
-        {
-            await _notifier.NotifyHostUpdatedAsync(scanId, dto);
-        }
     }
 
     private async Task UpdateScanProgressAsync(Guid scanId, double progress, int hostsFound, int hostsTotal)
@@ -577,15 +556,6 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
             dbScan.ProgressPercent = progress;
             dbScan.HostsFound = hostsFound;
             await db.SaveChangesAsync();
-
-            await _notifier.NotifyScanProgressAsync(scanId, new
-            {
-                scanId = scanId.ToString(),
-                progressPercent = progress,
-                hostsFound = hostsFound,
-                hostsTotal = hostsTotal,
-                status = dbScan.Status
-            });
         }
     }
 
@@ -602,15 +572,6 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
         };
         db.DiscoveryScanEvents.Add(evt);
         await db.SaveChangesAsync();
-
-        await _notifier.NotifyScanEventAsync(scanId, new
-        {
-            id = evt.Id,
-            scanId = scanId.ToString(),
-            severity = evt.Severity,
-            message = evt.Message,
-            timestamp = evt.Timestamp
-        });
     }
 
     private async Task MarkScanFailedAsync(Guid scanId, string errorMessage)
@@ -629,12 +590,6 @@ public class DiscoveryScanEngine : IDiscoveryScanEngine
                 Message = $"Scan execution failed: {errorMessage}"
             });
             await db.SaveChangesAsync();
-
-            await _notifier.NotifyScanFailedAsync(scanId, new
-            {
-                scanId = scanId.ToString(),
-                error = errorMessage
-            });
         }
     }
 

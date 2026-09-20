@@ -109,48 +109,48 @@ export interface LicensingOverview {
 
 export const licensingApi = {
   getOverview: async () => {
-    const res = await apiClient.get<LicensingOverview>('/licensing/overview');
+    const res = await apiClient.get<LicensingOverview>('/api/licensing/overview');
     return res.data;
   },
 
   getKmsHosts: async () => {
-    const res = await apiClient.get<KmsHostItem[]>('/licensing/kms-hosts');
+    const res = await apiClient.get<KmsHostItem[]>('/api/licensing/kms-hosts');
     return res.data;
   },
 
   createKmsHost: async (data: Partial<KmsHostItem>) => {
-    const res = await apiClient.post<KmsHostItem>('/licensing/kms-hosts', data);
+    const res = await apiClient.post<KmsHostItem>('/api/licensing/kms-hosts', data);
     return res.data;
   },
 
   updateKmsHost: async (id: string, data: Partial<KmsHostItem>) => {
-    const res = await apiClient.put<KmsHostItem>(`/licensing/kms-hosts/${id}`, data);
+    const res = await apiClient.put<KmsHostItem>(`/api/licensing/kms-hosts/${id}`, data);
     return res.data;
   },
 
   deleteKmsHost: async (id: string) => {
-    await apiClient.delete(`/licensing/kms-hosts/${id}`);
+    await apiClient.delete(`/api/licensing/kms-hosts/${id}`);
   },
 
   checkHostHealth: async (id: string) => {
-    const res = await apiClient.post(`/licensing/kms-hosts/${id}/health-check`);
+    const res = await apiClient.post(`/api/licensing/kms-hosts/${id}/health-check`);
     return res.data;
   },
 
   getEndpointActivation: async (endpointId: string) => {
     const res = await apiClient.get<{ windows: ActivationRecordItem | null; office: ActivationRecordItem | null }>(
-      `/licensing/endpoints/${endpointId}`
+      `/api/licensing/endpoints/${endpointId}`
     );
     return res.data;
   },
 
   triggerActivationCheck: async (endpointId: string) => {
-    const res = await apiClient.post(`/licensing/endpoints/${endpointId}/activation-check`);
+    const res = await apiClient.post(`/api/licensing/endpoints/${endpointId}/activation-check`);
     return res.data;
   },
 
   configureKmsClient: async (endpointId: string, kmsHostname: string, port: number = 1688) => {
-    const res = await apiClient.post(`/licensing/endpoints/${endpointId}/configure-kms`, {
+    const res = await apiClient.post(`/api/licensing/endpoints/${endpointId}/configure-kms`, {
       endpointId,
       kmsHostname,
       port,
@@ -159,47 +159,47 @@ export const licensingApi = {
   },
 
   activateEndpoint: async (endpointId: string) => {
-    const res = await apiClient.post(`/licensing/endpoints/${endpointId}/activate`);
+    const res = await apiClient.post(`/api/licensing/endpoints/${endpointId}/activate`);
     return res.data;
   },
 
   getWaves: async () => {
-    const res = await apiClient.get<ActivationWaveItem[]>('/licensing/waves');
+    const res = await apiClient.get<ActivationWaveItem[]>('/api/licensing/waves');
     return res.data;
   },
 
   createWave: async (name: string, waveSize: number = 25) => {
-    const res = await apiClient.post<ActivationWaveItem>('/licensing/waves', { name, waveSize });
+    const res = await apiClient.post<ActivationWaveItem>('/api/licensing/waves', { name, waveSize });
     return res.data;
   },
 
   startWave: async (id: string) => {
-    const res = await apiClient.post(`/licensing/waves/${id}/start`);
+    const res = await apiClient.post(`/api/licensing/waves/${id}/start`);
     return res.data;
   },
 
   pauseWave: async (id: string) => {
-    const res = await apiClient.post(`/licensing/waves/${id}/pause`);
+    const res = await apiClient.post(`/api/licensing/waves/${id}/pause`);
     return res.data;
   },
 
   getOfflineHistory: async () => {
-    const res = await apiClient.get<OfflinePackageItem[]>('/licensing/offline/history');
+    const res = await apiClient.get<OfflinePackageItem[]>('/api/licensing/offline/history');
     return res.data;
   },
 
   exportPackage: async (targetEnvironment: string, description?: string) => {
-    const res = await apiClient.post('/licensing/offline/export', { targetEnvironment, description }, { responseType: 'blob' });
+    const res = await apiClient.post('/api/licensing/offline/export', { targetEnvironment, description }, { responseType: 'blob' });
     return res.data;
   },
 
   validatePackage: async (packageJsonContent: string) => {
-    const res = await apiClient.post('/licensing/offline/validate', { packageJsonContent });
+    const res = await apiClient.post('/api/licensing/offline/validate', { packageJsonContent });
     return res.data;
   },
 
   importPackage: async (packageJsonContent: string) => {
-    const res = await apiClient.post('/licensing/offline/import', { packageJsonContent });
+    const res = await apiClient.post('/api/licensing/offline/import', { packageJsonContent });
     return res.data;
   },
 };

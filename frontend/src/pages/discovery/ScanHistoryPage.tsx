@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useScans } from '../../hooks/useDiscovery';
-import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { discoveryApi } from '../../api/discoveryApi';
 import { DiscoverySubnav } from './DiscoverySubnav';
 import { StatusBadge } from '../../components/common/StatusBadge';
@@ -11,7 +10,6 @@ import { History, Search, ExternalLink, Download, Network, Play } from 'lucide-r
 export const ScanHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: scans = [], isLoading } = useScans();
-  const { connectionStatus } = useDiscoveryHub();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -30,7 +28,7 @@ export const ScanHistoryPage: React.FC = () => {
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      <DiscoverySubnav connectionStatus={connectionStatus} />
+      <DiscoverySubnav />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between bg-white p-4 border border-slate-200 rounded-md shadow-xs gap-3">

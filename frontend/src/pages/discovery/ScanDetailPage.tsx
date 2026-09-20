@@ -9,7 +9,6 @@ import {
   useCancelScan,
   usePromoteHost,
 } from '../../hooks/useDiscovery';
-import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { discoveryApi } from '../../api/discoveryApi';
 import { DiscoverySubnav } from './DiscoverySubnav';
 import type { DiscoveryHostDto } from '../../types/discovery';
@@ -37,9 +36,6 @@ import {
 export const ScanDetailPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  // SignalR Hook
-  const { connectionStatus, flashedHostIds } = useDiscoveryHub(id);
 
   // Queries & Mutations
   const { data: scan, isLoading: isScanLoading } = useScan(id);
@@ -233,7 +229,7 @@ export const ScanDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      <DiscoverySubnav connectionStatus={connectionStatus} />
+      <DiscoverySubnav />
 
       {/* Top Header Card */}
       <div className="bg-white p-4 border border-slate-200 rounded-md shadow-xs space-y-3">
@@ -481,7 +477,7 @@ export const ScanDetailPage: React.FC = () => {
               {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                 const host = filteredHosts[virtualRow.index];
                 const isSelected = selectedHostIds.includes(host.id);
-                const isFlashed = flashedHostIds.has(host.id);
+                const isFlashed = false;
 
                 let openPorts: number[] = [];
                 try {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { formatCronExpression } from '../../utils/cronFormatter';
 import { useSchedules, useCreateSchedule, useDeleteSchedule } from '../../hooks/useDiscovery';
-import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { useAuthStore } from '../../store/useAuthStore';
 import { DiscoverySubnav } from './DiscoverySubnav';
 import { Modal } from '../../components/common/Modal';
@@ -16,7 +15,6 @@ export const ScanSchedulesPage: React.FC = () => {
   const { data: schedules = [], isLoading } = useSchedules();
   const createScheduleMutation = useCreateSchedule();
   const deleteScheduleMutation = useDeleteSchedule();
-  const { connectionStatus } = useDiscoveryHub();
 
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState('Daily Subnet Audit');
@@ -33,18 +31,12 @@ export const ScanSchedulesPage: React.FC = () => {
     e.preventDefault();
     setFormError(null);
 
-    if (!name.trim() || !targetCidr.trim() || !cronExpression.trim()) {
-      setFormError('Name, Cron Expression, and Target CIDR are required.');
-      return;
-    }
-
     createScheduleMutation.mutate(
       {
-        name: name.trim(),
-        cronExpression: cronExpression.trim(),
-        targetCidr: targetCidr.trim(),
+        name,
+        cronExpression,
+        targetCidr,
         scanType,
-        enabled: true,
       },
       {
         onSuccess: () => {
@@ -61,7 +53,7 @@ export const ScanSchedulesPage: React.FC = () => {
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      <DiscoverySubnav connectionStatus={connectionStatus} />
+      <DiscoverySubnav />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between bg-white p-4 border border-slate-200 rounded-md shadow-xs gap-3">

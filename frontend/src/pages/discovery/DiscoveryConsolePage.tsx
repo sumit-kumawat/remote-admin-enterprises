@@ -8,9 +8,8 @@ import {
   useResumeScan,
   useCancelScan,
 } from '../../hooks/useDiscovery';
-import { useDiscoveryHub } from '../../hooks/useDiscoveryHub';
 import { DiscoverySubnav } from './DiscoverySubnav';
-import type { ScanType, EventSeverity } from '../../types/discovery';
+import type { ScanType } from '../../types/discovery';
 import {
   Play,
   Pause,
@@ -21,7 +20,6 @@ import {
   ChevronDown,
   ChevronRight,
   Activity,
-  Terminal,
   Server,
   Zap,
   AlertTriangle,
@@ -36,8 +34,6 @@ export const DiscoveryConsolePage: React.FC = () => {
   const resumeScanMutation = useResumeScan();
   const cancelScanMutation = useCancelScan();
 
-  const { connectionStatus, events, clearEvents } = useDiscoveryHub();
-
   // Form State
   const [targetCidr, setTargetCidr] = useState('192.168.100.0/24');
   const [scanType, setScanType] = useState<ScanType>('Full');
@@ -48,9 +44,6 @@ export const DiscoveryConsolePage: React.FC = () => {
   const [rateLimitPps, setRateLimitPps] = useState(5000);
   const [confirmedOwnership, setConfirmedOwnership] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Log filter
-  const [logSeverityFilter, setLogSeverityFilter] = useState<'All' | EventSeverity>('All');
 
   // Validation Error
   const [formError, setFormError] = useState<string | null>(null);
@@ -106,38 +99,60 @@ export const DiscoveryConsolePage: React.FC = () => {
 
   const safeScans = Array.isArray(scans) ? scans : [];
   const safeSubnets = Array.isArray(subnets) ? subnets : [];
-  const safeEvents = Array.isArray(events) ? events : [];
-
-  // Filtered Events
-  const filteredEvents = safeEvents.filter((ev) => {
-    if (logSeverityFilter !== 'All' && ev.severity !== logSeverityFilter) return false;
-    return true;
-  });
 
   const activeScans = safeScans.filter((s) => s.status === 'Running' || s.status === 'Queued' || s.status === 'Paused');
   const totalHostsFound = safeScans.reduce((acc, s) => acc + (s.hostsFound || 0), 0);
 
   return (
     <div className="space-y-4 text-xs font-sans">
-      <DiscoverySubnav connectionStatus={connectionStatus} />
+      <DiscoverySubnav />
 
       {/* Header Banner */}
       <div className="flex flex-wrap items-center justify-between bg-white p-4 border border-slate-200 rounded-md shadow-xs gap-3">
         <div>
           <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Server className="h-5 w-5 text-[#2F3EA0]" />
-            Enterprise Real-Time Subnet Scanner
+            Enterprise Subnet Scanner
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Probe air-gapped single subnet ranges live via multi-protocol ARP/ICMP/TCP layer probes with real-time SignalR streaming.
+            Probe air-gapped single subnet ranges via multi-protocol ARP/ICMP/TCP layer probes.
           </p>
         </div>
       </div>
 
-      {/* Main Grid: Form Left, Activity Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Left Panel - Scan Configuration (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Form Column */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Quick Subnet Selector */}
+          <div className="bg-white p-4 border border-slate-200 rounded-md shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                <Network className="h-4 w-4 text-[#2F3EA0]" />
+                Select Subnet Target Range
+              </h2>
+              <span className="text-[10px] text-slate-500">
+                {safeSubnets.length} discovered subnets available
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {safeSubnets.map((sub) => (
+                <button
+                  key={sub.cidr || sub.name}
+                  type="button"
+                  onClick={() => handleQuickPickCidr(sub.cidr)}
+                  className={`px-2.5 py-1.5 rounded border text-xs font-mono transition-colors cursor-pointer ${
+                    targetCidr === sub.cidr
+                      ? 'bg-[#2F3EA0] text-white border-[#2F3EA0] font-bold'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                  }`}
+                >
+                  {sub.cidr} <span className="opacity-75">({sub.name})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="bg-white border border-slate-200 rounded-md shadow-xs p-4 space-y-4">
             <div className="border-b border-slate-200 pb-3">
               <h2 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
@@ -372,10 +387,6 @@ export const DiscoveryConsolePage: React.FC = () => {
               <div className="text-[11px] text-slate-500 font-medium">Total Hosts Found</div>
               <div className="text-xl font-bold text-emerald-700 mt-1">{totalHostsFound}</div>
             </div>
-            <div className="bg-white p-3 border border-slate-200 rounded-md shadow-xs">
-              <div className="text-[11px] text-slate-500 font-medium">SignalR Stream</div>
-              <div className="text-xl font-bold text-slate-800 mt-1 capitalize">{connectionStatus}</div>
-            </div>
           </div>
 
           {/* Active Scans Section */}
@@ -451,65 +462,6 @@ export const DiscoveryConsolePage: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* Monospace Live Log Stream via SignalR */}
-          <div className="bg-slate-900 border border-slate-800 rounded-md shadow-xs overflow-hidden flex flex-col h-[400px]">
-            <div className="p-3 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-emerald-400" />
-                <span className="font-mono text-xs font-bold text-slate-200">Live SignalR Event Console Stream</span>
-                <span className="text-[10px] text-slate-500">({events.length} events)</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <select
-                  value={logSeverityFilter}
-                  onChange={(e) => setLogSeverityFilter(e.target.value as any)}
-                  className="bg-slate-800 text-slate-300 text-[11px] px-2 py-0.5 rounded border border-slate-700 focus:outline-none"
-                >
-                  <option value="All">All Severities</option>
-                  <option value="Info">Info</option>
-                  <option value="Success">Success</option>
-                  <option value="Warning">Warning</option>
-                  <option value="Error">Error</option>
-                </select>
-
-                <button
-                  onClick={clearEvents}
-                  className="text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700 px-2 py-0.5 rounded"
-                >
-                  Clear Log
-                </button>
-              </div>
-            </div>
-
-            <div className="p-3 font-mono text-[11px] text-slate-300 flex-1 overflow-y-auto space-y-1 select-text">
-              {filteredEvents.length === 0 ? (
-                <div className="text-slate-600 text-center py-10 italic">
-                  No live events received yet. Initiate a scan to stream probe events live.
-                </div>
-              ) : (
-                filteredEvents.map((ev) => {
-                  const severityColor =
-                    ev.severity === 'Success'
-                      ? 'text-emerald-400'
-                      : ev.severity === 'Warning'
-                      ? 'text-amber-400'
-                      : ev.severity === 'Error'
-                      ? 'text-red-400'
-                      : 'text-blue-400';
-
-                  return (
-                    <div key={ev.id || Math.random()} className="flex items-start gap-2 hover:bg-slate-800/50 p-0.5 rounded">
-                      <span className="text-slate-500 shrink-0">{new Date(ev.timestamp).toLocaleTimeString()}</span>
-                      <span className={`font-bold shrink-0 w-14 ${severityColor}`}>[{ev.severity}]</span>
-                      <span className="text-slate-200 break-all">{ev.message}</span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
