@@ -35,8 +35,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: remote-admin-ui
     restart: unless-stopped
     ports:
