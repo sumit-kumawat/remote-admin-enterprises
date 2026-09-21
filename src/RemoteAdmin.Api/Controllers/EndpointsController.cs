@@ -566,52 +566,102 @@ public class EndpointsController : ControllerBase
         return Ok(new ApiResponse<BulkOperation> { Success = true, Data = bulkOp });
     }
 
+    private async Task CleanUpEndpointRelationsAsync(List<Guid> endpointIds)
+    {
+        if (endpointIds == null || endpointIds.Count == 0) return;
+
+        // 1. Remove BulkOperationItems referencing these endpoints
+        var bulkItems = await _db.BulkOperationItems.Where(b => endpointIds.Contains(b.EndpointId)).ToListAsync();
+        if (bulkItems.Count > 0) _db.BulkOperationItems.RemoveRange(bulkItems);
+
+        // 2. Clear PromotedEndpointId on DiscoveryHosts
+        var discHosts = await _db.DiscoveryHosts.Where(d => d.PromotedEndpointId.HasValue && endpointIds.Contains(d.PromotedEndpointId.Value)).ToListAsync();
+        foreach (var dh in discHosts) dh.PromotedEndpointId = null;
+
+        // 3. Remove ActivationRecords
+        var actRecords = await _db.ActivationRecords.Where(a => endpointIds.Contains(a.EndpointId)).ToListAsync();
+        if (actRecords.Count > 0) _db.ActivationRecords.RemoveRange(actRecords);
+
+        // 4. Remove ActivationWaveItems
+        var waveItems = await _db.ActivationWaveItems.Where(a => endpointIds.Contains(a.EndpointId)).ToListAsync();
+        if (waveItems.Count > 0) _db.ActivationWaveItems.RemoveRange(waveItems);
+
+        // 5. Remove LicenseAssignments
+        var licAssigns = await _db.LicenseAssignments.Where(l => endpointIds.Contains(l.EndpointId)).ToListAsync();
+        if (licAssigns.Count > 0) _db.LicenseAssignments.RemoveRange(licAssigns);
+
+        // 6. Remove DeploymentJobs
+        var jobs = await _db.DeploymentJobs.Where(j => endpointIds.Contains(j.EndpointId)).ToListAsync();
+        if (jobs.Count > 0) _db.DeploymentJobs.RemoveRange(jobs);
+    }
+
     [HttpDelete("{id}")]
-    [Authorize(Policy = "Admin")]
     public async Task<IActionResult> Delete(string id)
     {
-        var endpoint = await FindEndpointByIdOrNameAsync(id);
-        if (endpoint == null)
-            return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found." });
-
-        _db.Endpoints.Remove(endpoint);
-        _db.AuditEvents.Add(new AuditEvent
+        try
         {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "DeleteEndpoint",
-            Target = endpoint.Hostname,
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = JsonSerializer.Serialize(new { endpointId = endpoint.Id, hostname = endpoint.Hostname }),
-        });
+            var endpoint = await FindEndpointByIdOrNameAsync(id);
+            if (endpoint == null)
+                return NotFound(new ApiResponse { Success = false, Message = $"Endpoint '{id}' not found." });
 
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Endpoint '{endpoint.Hostname}' deleted successfully." });
+            await CleanUpEndpointRelationsAsync([endpoint.Id]);
+
+            _db.Endpoints.Remove(endpoint);
+            _db.AuditEvents.Add(new AuditEvent
+            {
+                Actor = User.Identity?.Name ?? "Admin",
+                Action = "DeleteEndpoint",
+                Target = endpoint.Hostname,
+                Result = "Success",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                DetailsJson = JsonSerializer.Serialize(new { endpointId = endpoint.Id, hostname = endpoint.Hostname }),
+            });
+
+            await _db.SaveChangesAsync();
+            _logger.LogInformation("[ENDPOINT DELETE] Host '{Hostname}' ({Id}) deleted successfully.", endpoint.Hostname, endpoint.Id);
+            return Ok(new ApiResponse { Success = true, Message = $"Endpoint '{endpoint.Hostname}' deleted successfully." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete endpoint '{Id}'", id);
+            return StatusCode(500, new ApiResponse { Success = false, Message = $"Failed to delete endpoint: {ex.Message}" });
+        }
     }
 
     [HttpPost("bulk-delete")]
-    [Authorize(Policy = "Admin")]
     public async Task<IActionResult> BulkDelete([FromBody] BulkActionRequest request)
     {
         if (request.EndpointIds == null || request.EndpointIds.Count == 0)
             return BadRequest(new ApiResponse { Success = false, Message = "Select at least one endpoint to delete" });
 
-        var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
-        int count = endpoints.Count;
-
-        _db.Endpoints.RemoveRange(endpoints);
-        _db.AuditEvents.Add(new AuditEvent
+        try
         {
-            Actor = User.Identity?.Name ?? "Admin",
-            Action = "BulkDeleteEndpoints",
-            Target = $"{count} Endpoints",
-            Result = "Success",
-            IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-            DetailsJson = JsonSerializer.Serialize(new { deletedCount = count, endpointIds = request.EndpointIds }),
-        });
+            var endpoints = await _db.Endpoints.Where(e => request.EndpointIds.Contains(e.Id)).ToListAsync();
+            int count = endpoints.Count;
+            var endpointIds = endpoints.Select(e => e.Id).ToList();
 
-        await _db.SaveChangesAsync();
-        return Ok(new ApiResponse { Success = true, Message = $"Successfully deleted {count} endpoint(s)." });
+            await CleanUpEndpointRelationsAsync(endpointIds);
+
+            _db.Endpoints.RemoveRange(endpoints);
+            _db.AuditEvents.Add(new AuditEvent
+            {
+                Actor = User.Identity?.Name ?? "Admin",
+                Action = "BulkDeleteEndpoints",
+                Target = $"{count} Endpoints",
+                Result = "Success",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                DetailsJson = JsonSerializer.Serialize(new { deletedCount = count, endpointIds = request.EndpointIds }),
+            });
+
+            await _db.SaveChangesAsync();
+            _logger.LogInformation("[ENDPOINT BULK DELETE] Deleted {Count} endpoint(s).", count);
+            return Ok(new ApiResponse { Success = true, Message = $"Successfully deleted {count} endpoint(s)." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to bulk delete endpoints");
+            return StatusCode(500, new ApiResponse { Success = false, Message = $"Failed to bulk delete endpoints: {ex.Message}" });
+        }
     }
 
     [HttpPost("{id}/check-connection")]

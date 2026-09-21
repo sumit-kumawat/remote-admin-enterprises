@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useEndpointsList, useBulkAction, useCreateLocalAdmin, useBulkDeleteEndpoints } from '../../hooks/useEndpoints';
+import { useEndpointsList, useBulkAction, useCreateLocalAdmin, useBulkDeleteEndpoints, useDeleteEndpoint } from '../../hooks/useEndpoints';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { ErrorState } from '../../components/common/ErrorState';
@@ -40,6 +40,7 @@ export const EndpointsPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<{ id: string; hostname: string } | null>(null);
   const [selectedDrawerEndpointId, setSelectedDrawerEndpointId] = useState<string | null>(null);
   const [selectedEndpointIds, setSelectedEndpointIds] = useState<string[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export const EndpointsPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useEndpointsList({ search, page: 1, pageSize: 100 });
   const bulkActionMutation = useBulkAction();
   const createLocalAdminMutation = useCreateLocalAdmin();
+  const deleteEndpointMutation = useDeleteEndpoint();
   const bulkDeleteMutation = useBulkDeleteEndpoints();
 
   const rawItems = data?.items || [];
@@ -77,6 +79,7 @@ export const EndpointsPage: React.FC = () => {
   const handleBulkAction = (action: string) => {
     if (selectedEndpointIds.length === 0) return;
     if (action === 'Delete') {
+      setSingleDeleteTarget(null);
       setIsDeleteModalOpen(true);
     } else if (action === 'CreateLocalAdmin') {
       createLocalAdminMutation.mutate(selectedEndpointIds, {
@@ -90,14 +93,30 @@ export const EndpointsPage: React.FC = () => {
     }
   };
 
-  const confirmBulkDelete = () => {
-    if (selectedEndpointIds.length === 0) return;
-    bulkDeleteMutation.mutate(selectedEndpointIds, {
-      onSuccess: () => {
-        setSelectedEndpointIds([]);
-        setIsDeleteModalOpen(false);
-      },
-    });
+  const handleSingleDeleteClick = (id: string, hostname: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSingleDeleteTarget({ id, hostname });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAction = () => {
+    if (singleDeleteTarget) {
+      deleteEndpointMutation.mutate(singleDeleteTarget.id, {
+        onSuccess: () => {
+          setIsDeleteModalOpen(false);
+          setSingleDeleteTarget(null);
+          refetch();
+        },
+      });
+    } else if (selectedEndpointIds.length > 0) {
+      bulkDeleteMutation.mutate(selectedEndpointIds, {
+        onSuccess: () => {
+          setSelectedEndpointIds([]);
+          setIsDeleteModalOpen(false);
+          refetch();
+        },
+      });
+    }
   };
 
   const handleCopyToClipboard = (text: string, label: string, e: React.MouseEvent) => {
@@ -378,12 +397,21 @@ export const EndpointsPage: React.FC = () => {
 
                       {/* Action Column */}
                       <td className="p-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setSelectedDrawerEndpointId(ep.id)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs cursor-pointer"
-                        >
-                          <span>Manage Endpoint</span> <ExternalLink className="h-3 w-3" />
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setSelectedDrawerEndpointId(ep.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#2F3EA0] hover:bg-[#233080] rounded transition-colors shadow-xs cursor-pointer"
+                          >
+                            <span>Manage Endpoint</span> <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={(e) => handleSingleDeleteClick(ep.id, ep.hostname, e)}
+                            title={`Delete ${ep.hostname}`}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -411,9 +439,16 @@ export const EndpointsPage: React.FC = () => {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setSingleDeleteTarget(null);
+        }}
         title="Confirm Endpoint Deletion"
-        subtitle={`Permanently remove ${selectedEndpointIds.length} endpoint(s) from inventory`}
+        subtitle={
+          singleDeleteTarget
+            ? `Permanently remove '${singleDeleteTarget.hostname}' from inventory`
+            : `Permanently remove ${selectedEndpointIds.length} endpoint(s) from inventory`
+        }
         maxWidth="md"
       >
         <div className="space-y-4 font-sans">
@@ -422,7 +457,11 @@ export const EndpointsPage: React.FC = () => {
             <div className="space-y-1">
               <p className="font-bold text-xs">Warning: Unrecoverable Inventory Removal</p>
               <p className="text-xs text-rose-800">
-                Are you sure you want to delete <span className="font-bold">{selectedEndpointIds.length}</span> selected endpoint(s)? This will remove all associated hardware inventory details, credential mappings, and audit history references.
+                Are you sure you want to delete{' '}
+                <span className="font-bold">
+                  {singleDeleteTarget ? singleDeleteTarget.hostname : `${selectedEndpointIds.length} selected endpoint(s)`}
+                </span>
+                ? This will remove all associated hardware inventory details, credential mappings, and audit history references.
               </p>
             </div>
           </div>
@@ -430,19 +469,26 @@ export const EndpointsPage: React.FC = () => {
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => setIsDeleteModalOpen(false)}
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setSingleDeleteTarget(null);
+              }}
               className="px-3 py-1.5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded text-xs font-semibold cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="button"
-              onClick={confirmBulkDelete}
-              disabled={bulkDeleteMutation.isPending}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
+              onClick={confirmDeleteAction}
+              disabled={deleteEndpointMutation.isPending || bulkDeleteMutation.isPending}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {bulkDeleteMutation.isPending ? 'Deleting...' : `Confirm Delete (${selectedEndpointIds.length})`}
+              {deleteEndpointMutation.isPending || bulkDeleteMutation.isPending
+                ? 'Deleting...'
+                : singleDeleteTarget
+                ? `Confirm Delete '${singleDeleteTarget.hostname}'`
+                : `Confirm Delete (${selectedEndpointIds.length})`}
             </button>
           </div>
         </div>

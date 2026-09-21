@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useEndpointDetail } from '../../hooks/useEndpoints';
+import { useEndpointDetail, useDeleteEndpoint } from '../../hooks/useEndpoints';
 import { endpointsApi } from '../../api/endpointsApi';
 import { fetchCredentials, type CredentialProfileItem } from '../../api/credentialsApi';
 import { StatusBadge } from '../common/StatusBadge';
@@ -26,6 +26,7 @@ import {
   AlertTriangle,
   KeyRound,
   Building2,
+  Trash2,
 } from 'lucide-react';
 
 interface EndpointDetailDrawerProps {
@@ -83,9 +84,10 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
   const [installPackageInput, setInstallPackageInput] = useState('');
   const [installVersionInput, setInstallVersionInput] = useState('');
   const [isInstallingSw, setIsInstallingSw] = useState(false);
+  const [isDeleteDrawerModalOpen, setIsDeleteDrawerModalOpen] = useState(false);
 
   const { data: response, isLoading, isError, refetch } = useEndpointDetail(endpointId || '');
-
+  const deleteEndpointMutation = useDeleteEndpoint();
   const rawData: any = response;
   const endpoint: EndpointDetailDto | undefined = rawData?.data ?? (rawData?.id ? rawData : undefined);
 
@@ -320,14 +322,23 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
           </div>
           <div className="flex items-center gap-2">
             {endpoint && (
-              <button
-                onClick={handleCheckConnection}
-                disabled={isCheckingConnection}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 text-[#2F3EA0] ${isCheckingConnection ? 'animate-spin' : ''}`} />
-                {isCheckingConnection ? 'Authenticating WMI...' : 'Check Connection & Authenticate'}
-              </button>
+              <>
+                <button
+                  onClick={handleCheckConnection}
+                  disabled={isCheckingConnection}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-[#2F3EA0] ${isCheckingConnection ? 'animate-spin' : ''}`} />
+                  {isCheckingConnection ? 'Authenticating WMI...' : 'Check Connection & Authenticate'}
+                </button>
+                <button
+                  onClick={() => setIsDeleteDrawerModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded shadow-xs cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                  Delete Endpoint
+                </button>
+              </>
             )}
             <button
               onClick={onClose}
@@ -984,6 +995,55 @@ export const EndpointDetailDrawer: React.FC<EndpointDetailDrawerProps> = ({
               </button>
             </div>
           </form>
+        </Modal>
+
+        {/* Modal: Delete Endpoint Confirmation */}
+        <Modal
+          isOpen={isDeleteDrawerModalOpen}
+          onClose={() => setIsDeleteDrawerModalOpen(false)}
+          title="Confirm Endpoint Deletion"
+          subtitle={`Permanently remove '${endpoint?.hostname}' from inventory`}
+          maxWidth="md"
+        >
+          <div className="space-y-4 font-sans">
+            <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-200 rounded text-rose-900">
+              <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-xs">Warning: Unrecoverable Inventory Removal</p>
+                <p className="text-xs text-rose-800">
+                  Are you sure you want to delete endpoint <span className="font-bold">{endpoint?.hostname}</span>? This will remove all associated hardware inventory details, credential mappings, and audit history references.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsDeleteDrawerModalOpen(false)}
+                className="px-3 py-1.5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteEndpointMutation.isPending}
+                onClick={() => {
+                  if (endpointId) {
+                    deleteEndpointMutation.mutate(endpointId, {
+                      onSuccess: () => {
+                        setIsDeleteDrawerModalOpen(false);
+                        onClose();
+                      },
+                    });
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleteEndpointMutation.isPending ? 'Deleting...' : `Confirm Delete '${endpoint?.hostname}'`}
+              </button>
+            </div>
+          </div>
         </Modal>
       </div>
     </div>

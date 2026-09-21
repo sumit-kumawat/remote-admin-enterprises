@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEndpointDetail } from '../../hooks/useEndpoints';
+import { useEndpointDetail, useDeleteEndpoint } from '../../hooks/useEndpoints';
 import { endpointsApi } from '../../api/endpointsApi';
 import { fetchCredentials, type CredentialProfileItem } from '../../api/credentialsApi';
 import type {
@@ -41,6 +41,7 @@ import {
   Clock,
   Zap,
   AlertTriangle,
+  Trash2,
 } from 'lucide-react';
 
 export const EndpointDetailPage: React.FC = () => {
@@ -90,8 +91,10 @@ export const EndpointDetailPage: React.FC = () => {
   const [installPackageInput, setInstallPackageInput] = useState('');
   const [installVersionInput, setInstallVersionInput] = useState('');
   const [isInstallingSw, setIsInstallingSw] = useState(false);
+  const [isDeleteDetailPageModalOpen, setIsDeleteDetailPageModalOpen] = useState(false);
 
   const { data: response, isLoading, isError, refetch } = useEndpointDetail(id || '');
+  const deleteEndpointMutation = useDeleteEndpoint();
 
   useEffect(() => {
     fetchCredentials()
@@ -340,6 +343,12 @@ export const EndpointDetailPage: React.FC = () => {
                 <Zap className="h-3.5 w-3.5 text-amber-700" /> Power On (WOL)
               </button>
             )}
+            <button
+              onClick={() => setIsDeleteDetailPageModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded shadow-xs cursor-pointer"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-rose-600" /> Delete Endpoint
+            </button>
           </div>
         </div>
 
@@ -1233,6 +1242,55 @@ export const EndpointDetailPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Delete Endpoint Confirmation */}
+      <Modal
+        isOpen={isDeleteDetailPageModalOpen}
+        onClose={() => setIsDeleteDetailPageModalOpen(false)}
+        title="Confirm Endpoint Deletion"
+        subtitle={`Permanently remove '${endpoint?.hostname}' from inventory`}
+        maxWidth="md"
+      >
+        <div className="space-y-4 font-sans">
+          <div className="flex items-start gap-3 p-3 bg-rose-50 border border-rose-200 rounded text-rose-900">
+            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-xs">Warning: Unrecoverable Inventory Removal</p>
+              <p className="text-xs text-rose-800">
+                Are you sure you want to delete endpoint <span className="font-bold">{endpoint?.hostname}</span>? This will remove all associated hardware inventory details, credential mappings, and audit history references.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIsDeleteDetailPageModalOpen(false)}
+              className="px-3 py-1.5 border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 rounded text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleteEndpointMutation.isPending}
+              onClick={() => {
+                if (endpoint?.id) {
+                  deleteEndpointMutation.mutate(endpoint.id, {
+                    onSuccess: () => {
+                      setIsDeleteDetailPageModalOpen(false);
+                      navigate('/endpoints');
+                    },
+                  });
+                }
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-xs font-semibold cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleteEndpointMutation.isPending ? 'Deleting...' : `Confirm Delete '${endpoint?.hostname}'`}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
